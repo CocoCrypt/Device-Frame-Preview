@@ -1,0 +1,16 @@
+{
+  "description": "Preview your website inside realistic phone, tablet, laptop and monitor frames, right in VS Code: 71 devices, multi-device view, live reload and automatic dev server detection.",
+  "command.open": "Device Frame Preview: Open preview",
+  "command.openFile": "Device Frame Preview: Preview this HTML file",
+  "command.quickOpen": "Device Frame Preview: Open (active file or server)",
+  "command.pickServer": "Device Frame Preview: Choose a server…",
+  "config.defaultUrl": "URL used when no dev server is detected (e.g. your Vite, Next or Django server).",
+  "config.defaultDevice": "Device used the very first time (afterwards, the last selected device is remembered).",
+  "config.autoReload": "Reload the preview when a file changes (HTML file mode). CSS changes are applied without reloading the page.",
+  "config.multiDevices": "Devices shown side by side in multi-device mode (ids, e.g. iphone-se, pixel-8, ipad-mini, laptop-fhd, or user:<name> for a custom device).",
+  "config.customDevices": "Custom devices added to the list.",
+  "config.customDevices.width": "Width in CSS px",
+  "config.customDevices.height": "Height in CSS px",
+  "config.showStatusBar": "Show a “Preview” button in the status bar.",
+  "config.proxy": "Route pages through a local proxy that removes X-Frame-Options and frame-ancestors, so sites that refuse to be embedded (Django, Rails…) can be previewed."
+}

@@ -9,6 +9,22 @@ const tls = require('tls');
 
 let panel = null;
 
+/** Traduction (vscode.l10n) : la chaîne source est en anglais, les traductions sont dans l10n/. */
+const tr = (msg, ...args) => vscode.l10n.t(msg, ...args);
+
+// Textes utilisés par media/preview.js et media/devices.js
+const WEBVIEW_STRINGS = [
+  'Custom size…', 'Custom', 'My devices', 'Other', '{0} devices',
+  'iPhone', 'Android', 'Foldables', 'iPad', 'Android tablets & more', 'Laptops', 'Desktop monitors',
+  'iPhone 5 / SE (1st gen)', 'Android compact (360×800)', 'Android legacy (360×640)',
+  'Galaxy Z Fold (folded)', 'Galaxy Z Fold (unfolded)', 'Pixel 9 Pro Fold (unfolded)',
+  'iPad mini (6th gen+)', 'iPad classic / mini 5',
+  'Laptop HD (1366×768)', 'Laptop 13" (1280×800)', 'Laptop 1440×900', 'Laptop 15" (1536×864)',
+  'Laptop Full HD (1920×1080)', 'HD+ monitor (1600×900)', 'Full HD monitor (1920×1080)',
+  'QHD monitor (2560×1440)', 'Ultrawide monitor (3440×1440)'
+];
+const webviewStrings = () => Object.fromEntries(WEBVIEW_STRINGS.map((k) => [k, tr(k, '{0}')]));
+
 /* =====================================================================
  * Serveur statique local (mode « fichier HTML ») + rechargement à chaud
  * ===================================================================== */
@@ -118,7 +134,7 @@ async function handleRequest(root, req, res) {
   let urlPath;
   try { urlPath = decodeURIComponent(urlObj.pathname); } catch { res.writeHead(400); return res.end(); }
   let filePath = path.resolve(root, '.' + urlPath);
-  if (!isInside(root, filePath)) { res.writeHead(403); return res.end('403 – accès refusé'); }
+  if (!isInside(root, filePath)) { res.writeHead(403); return res.end('403 – forbidden'); }
 
   try {
     let st = await fs.promises.stat(filePath);
@@ -145,7 +161,7 @@ async function handleRequest(root, req, res) {
     fs.createReadStream(filePath).on('error', () => res.destroy()).pipe(res);
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('404 – introuvable : ' + urlPath);
+    res.end('404 – not found: ' + urlPath);
   }
 }
 
@@ -243,7 +259,7 @@ function checkUrl(url) {
         method: 'GET', hostname: host, timeout: 3000, rejectUnauthorized: false,
         servername: u.hostname, headers: { Host: u.host }
       }, (res) => { res.destroy(); done(true); });
-      req.on('timeout', () => req.destroy(Object.assign(new Error('délai dépassé'), { code: 'TIMEOUT' })));
+      req.on('timeout', () => req.destroy(Object.assign(new Error('timeout'), { code: 'TIMEOUT' })));
       req.on('error', (e) => { lastErr = e; done(false); });
       req.end();
     }
@@ -314,7 +330,7 @@ function proxyRequest(req, res) {
   preq.on('error', (e) => {
     if (res.headersSent) return res.destroy();
     res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end(`Device Frame Preview : impossible de joindre ${target} (${e.code || e.message})`);
+    res.end(tr('Device Frame Preview: cannot reach {0} ({1})', target, e.code || e.message));
   });
   req.pipe(preq);
 }
@@ -429,25 +445,25 @@ async function pickUrl(context, { force = false } = {}) {
   if (!force && last && (await checkUrl(last)).ok) return last;
 
   const servers = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: 'Device Frame Preview : recherche de serveurs…' },
+    { location: vscode.ProgressLocation.Window, title: tr('Device Frame Preview: looking for servers…') },
     detectServers);
 
   if (!force && servers.length === 1) return servers[0].url;
 
   const items = servers.map((s) => ({
-    label: `$(server) ${s.url}`, description: s.title || `port ${s.port}`, url: s.url
+    label: `$(server) ${s.url}`, description: s.title || tr('port {0}', s.port), url: s.url
   }));
-  items.push({ label: '$(edit) Saisir une autre URL…', url: null });
+  items.push({ label: '$(edit) ' + tr('Enter another URL…'), url: null });
   if (!servers.length) {
-    items.unshift({ label: `$(globe) ${getConfig().defaultUrl}`, description: 'URL par défaut (aucun serveur détecté)', url: getConfig().defaultUrl });
+    items.unshift({ label: `$(globe) ${getConfig().defaultUrl}`, description: tr('Default URL (no server detected)'), url: getConfig().defaultUrl });
   }
   const pick = await vscode.window.showQuickPick(items, {
-    title: 'Device Frame Preview', placeHolder: servers.length ? 'Quel serveur prévisualiser ?' : 'Aucun serveur de dev détecté'
+    title: 'Device Frame Preview', placeHolder: servers.length ? tr('Which server do you want to preview?') : tr('No dev server detected')
   });
   if (!pick) return undefined;
   if (pick.url) return pick.url;
   return vscode.window.showInputBox({
-    title: 'Device Frame Preview', prompt: 'URL à prévisualiser', value: last || getConfig().defaultUrl
+    title: 'Device Frame Preview', prompt: tr('URL to preview'), value: last || getConfig().defaultUrl
   });
 }
 
@@ -535,11 +551,12 @@ function setupPanel(context, p, target) {
     url: target.url || cfg.defaultUrl,
     server: target.server || null,
     device: context.globalState.get('lastDevice') || cfg.defaultDevice,
-    ...webviewConfig()
+    ...webviewConfig(),
+    strings: webviewStrings()
   };
 
   webview.html = `<!DOCTYPE html>
-<html lang="fr">
+<html lang="${vscode.env.language}">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -549,17 +566,17 @@ function setupPanel(context, p, target) {
 </head>
 <body>
   <header class="toolbar">
-    <select id="device" title="Appareil"></select>
+    <select id="device" title="${tr('Device')}"></select>
     <span id="customSize" class="custom-size" hidden>
-      <input id="cw" type="number" min="100" max="4000" title="Largeur (px)">
+      <input id="cw" type="number" min="100" max="4000" title="${tr('Width (px)')}">
       <span>×</span>
-      <input id="ch" type="number" min="100" max="4000" title="Hauteur (px)">
+      <input id="ch" type="number" min="100" max="4000" title="${tr('Height (px)')}">
     </span>
-    <button id="rotate" title="Pivoter (R)">⟳</button>
-    <button id="frameToggle" title="Afficher / masquer le cadre (F)">▢</button>
-    <button id="multi" title="Afficher plusieurs appareils côte à côte (M)">⊞</button>
+    <button id="rotate" title="${tr('Rotate (R)')}">⟳</button>
+    <button id="frameToggle" title="${tr('Show / hide the frame (F)')}">▢</button>
+    <button id="multi" title="${tr('Show several devices side by side (M)')}">⊞</button>
     <select id="zoom" title="Zoom">
-      <option value="fit">Ajuster</option>
+      <option value="fit">${tr('Fit')}</option>
       <option value="0.25">25 %</option>
       <option value="0.5">50 %</option>
       <option value="0.75">75 %</option>
@@ -568,21 +585,21 @@ function setupPanel(context, p, target) {
     </select>
     <form id="urlForm">
       <input id="url" type="text" spellcheck="false" placeholder="http://localhost:3000">
-      <button type="submit" title="Charger">↵</button>
+      <button type="submit" title="${tr('Load')}">↵</button>
     </form>
-    <button id="reload" title="Recharger">↻</button>
-    <button id="external" title="Ouvrir dans le navigateur">↗</button>
+    <button id="reload" title="${tr('Reload')}">↻</button>
+    <button id="external" title="${tr('Open in browser')}">↗</button>
     <span id="dims" class="dims"></span>
   </header>
   <main id="stage">
     <div id="scaler"><div id="devices"></div></div>
     <div id="offline" class="offline" hidden>
       <div class="offline-box">
-        <div class="offline-title">Impossible de joindre le serveur</div>
+        <div class="offline-title">${tr('Cannot reach the server')}</div>
         <code id="offlineUrl"></code>
         <div id="offlineErr" class="offline-err"></div>
-        <p>Lance ton serveur de dev : l'aperçu se rechargera automatiquement dès qu'il répondra.</p>
-        <button id="offlineDismiss">Ignorer</button>
+        <p>${tr('Start your dev server: the preview will reload automatically as soon as it responds.')}</p>
+        <button id="offlineDismiss">${tr('Dismiss')}</button>
       </div>
     </div>
   </main>
@@ -647,13 +664,13 @@ function isHtml(uri) {
 async function openFile(context, uri) {
   uri = uri || vscode.window.activeTextEditor?.document.uri;
   if (!isHtml(uri)) {
-    vscode.window.showWarningMessage('Device Frame Preview : ouvre ou sélectionne un fichier HTML.');
+    vscode.window.showWarningMessage(tr('Device Frame Preview: open or select an HTML file.'));
     return;
   }
   try {
     openPanel(context, await serverUrlFor(uri.fsPath));
   } catch (e) {
-    vscode.window.showErrorMessage('Device Frame Preview : impossible de démarrer le serveur – ' + e.message);
+    vscode.window.showErrorMessage(tr('Device Frame Preview: could not start the server – {0}', e.message));
   }
 }
 
@@ -661,7 +678,7 @@ function activate(context) {
 
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   status.text = '$(device-mobile) Preview';
-  status.tooltip = 'Device Frame Preview (Ctrl+Alt+P) : prévisualiser le fichier HTML actif ou ton serveur de dev';
+  status.tooltip = tr('Device Frame Preview (Ctrl+Alt+P): preview the active HTML file or your dev server');
   status.command = 'devicePreview.quickOpen';
   const refreshStatus = () => (getConfig().showStatusBar ? status.show() : status.hide());
   refreshStatus();

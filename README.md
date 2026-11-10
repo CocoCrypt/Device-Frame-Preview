@@ -1,62 +1,71 @@
 # Device Frame Preview
 
-Prévisualise ton site **dans un vrai cadre de téléphone, tablette, PC portable ou écran**, directement dans VS Code, sans quitter ton éditeur.
+**Preview your website inside realistic phone, tablet, laptop and monitor frames — right in VS Code.**
 
-![Mode multi-appareils : iPhone, iPad et MacBook côte à côte](images/multi-appareils.png)
+🇫🇷 [Version française](README.fr.md)
 
-## Démarrage en 1 clic
+![Switching between iPhone, Galaxy, iPad, MacBook and multi-device view](images/demo.png)
 
-Clique sur **Preview** dans la barre d'état (en bas à droite) ou appuie sur **`Ctrl+Alt+P`** (`Cmd+Alt+P` sur Mac) :
+## One-click start
 
-- **un fichier HTML est ouvert** → il s'affiche, avec rechargement live à chaque enregistrement ;
-- **sinon** → l'extension **détecte automatiquement ton serveur de dev** (Vite, Next.js, Angular, Django, Laravel, PHP, Flask…) et l'affiche. S'il y en a plusieurs, elle te demande lequel.
+Click **Preview** in the status bar (bottom right) or press **`Ctrl+Alt+P`** (`Cmd+Alt+P` on Mac):
 
-Tu peux aussi faire un clic droit sur un fichier `.html` → *Prévisualiser ce fichier HTML*.
+- **an HTML file is open** → it is previewed, with live reload on every save;
+- **otherwise** → the extension **automatically detects your running dev server** (Vite, Next.js, Angular, Django, Laravel, PHP, Flask…) and shows it. If several are running, it asks which one.
 
-## Fonctionnalités
+You can also right-click an `.html` file → *Preview this HTML file*.
 
-- **71 appareils** : iPhone (du 5 au 17 Pro Max), Pixel, Galaxy, Xiaomi, OnePlus, pliables (Z Fold, Z Flip, Pixel Fold), iPad, Galaxy Tab, Surface, MacBook, PC portables et écrans jusqu'à l'ultra-large.
-- **Cadres réalistes** : Dynamic Island, encoche ou poinçon selon le modèle, cadre de PC portable ou d'écran de bureau.
-- **Mode multi-appareils** (⊞) : téléphone, tablette et ordinateur côte à côte, avec **navigation synchronisée**.
-- **Rechargement live** des fichiers HTML : le CSS s'applique sans recharger, la position de défilement est conservée, les modifications faites hors de VS Code sont détectées.
-- **Rotation**, **zoom**, cadre affichable/masquable, **taille personnalisée** et appareils personnalisés.
-- **Serveur arrêté ?** Un message s'affiche et l'aperçu se recharge tout seul dès que ton serveur redémarre.
-- L'aperçu est **restauré** au redémarrage de VS Code.
+![Multi-device view: iPhone, iPad and MacBook side by side](images/multi-device.png)
 
-Raccourcis dans l'aperçu : `R` pivoter · `F` cadre · `M` multi-appareils.
+## Features
 
-| iPhone 17 Pro | Galaxy S24 Ultra et iPhone 14 |
+- **71 devices**: iPhone (5 to 17 Pro Max), Pixel, Galaxy, Xiaomi, OnePlus, foldables (Z Fold, Z Flip, Pixel Fold), iPad, Galaxy Tab, Surface, MacBook, laptops and monitors up to ultrawide.
+- **Realistic frames**: Dynamic Island, notch or punch-hole depending on the model, status bar, laptop and desktop monitor frames.
+- **Multi-device view** (⊞): phone, tablet and computer side by side, with **synchronized navigation**.
+- **Live reload** for HTML files: CSS is applied without reloading, scroll position is kept, changes made outside VS Code are detected.
+- **Rotate**, **zoom**, show/hide frame, **custom size** and your own custom devices.
+- **Server stopped?** A message is shown and the preview reloads automatically as soon as your server is back.
+- The preview is **restored** when VS Code restarts.
+- Available in **English** and **French** (follows your VS Code language).
+
+Shortcuts inside the preview: `R` rotate · `F` frame · `M` multi-device.
+
+| iPhone 17 Pro | Galaxy S24 Ultra & iPhone 14 |
 |---|---|
-| ![Aperçu dans un iPhone 17 Pro](images/iphone.png) | ![Aperçu dans un Galaxy S24 Ultra et un iPhone 14](images/android-iphone.png) |
+| ![Preview in an iPhone 17 Pro](images/iphone.png) | ![Preview in a Galaxy S24 Ultra and an iPhone 14](images/android-iphone.png) |
 
-## Réglages
+## Settings
 
-| Réglage | Par défaut | Rôle |
+| Setting | Default | Purpose |
 |---|---|---|
-| `devicePreview.defaultUrl` | `http://localhost:3000` | URL utilisée si aucun serveur n'est détecté |
-| `devicePreview.defaultDevice` | `iphone-15` | Appareil à la première ouverture |
-| `devicePreview.multiDevices` | `["iphone-15", "ipad-air", "laptop-13"]` | Appareils du mode multi |
-| `devicePreview.customDevices` | `[]` | Appareils perso, ex. `[{ "name": "Mon tel", "width": 390, "height": 844 }]` |
-| `devicePreview.autoReload` | `true` | Rechargement live en mode fichier HTML |
-| `devicePreview.proxy` | `true` | Proxy local (voir ci-dessous) |
-| `devicePreview.showStatusBar` | `true` | Bouton « Preview » dans la barre d'état |
+| `devicePreview.defaultUrl` | `http://localhost:3000` | URL used when no server is detected |
+| `devicePreview.defaultDevice` | `iphone-15` | Device used the first time |
+| `devicePreview.multiDevices` | `["iphone-15", "ipad-air", "laptop-13"]` | Devices shown in multi-device view |
+| `devicePreview.customDevices` | `[]` | Your own devices, e.g. `[{ "name": "My phone", "width": 390, "height": 844 }]` |
+| `devicePreview.autoReload` | `true` | Live reload in HTML file mode |
+| `devicePreview.proxy` | `true` | Local proxy (see below) |
+| `devicePreview.showStatusBar` | `true` | “Preview” button in the status bar |
 
-## Confidentialité et sécurité
+## Privacy & security
 
-Beaucoup de frameworks (Django, Rails…) interdisent l'affichage de leurs pages dans un cadre (`X-Frame-Options`, `frame-ancestors`), ce qui donnerait un aperçu blanc. Pour l'éviter, l'extension fait passer les pages par un **petit proxy local** qui retire uniquement ces deux en-têtes.
+Many frameworks (Django, Rails…) forbid their pages from being displayed in a frame (`X-Frame-Options`, `frame-ancestors`), which would give a blank preview. To avoid that, the extension routes pages through a **small local proxy** that removes only those two headers.
 
-- Le proxy écoute **uniquement sur ta machine** (`127.0.0.1`), jamais sur le réseau.
-- Il ne sert qu'à l'aperçu dans VS Code : ton site, ton code et ta configuration ne sont **pas modifiés**.
-- Il s'arrête quand tu fermes l'aperçu.
-- **Aucune donnée n'est envoyée** à l'extérieur ; l'extension ne collecte rien.
+- The proxy listens **only on your machine** (`127.0.0.1`), never on the network.
+- It is only used for the preview inside VS Code: your site, code and configuration are **not modified**.
+- It stops when you close the preview.
+- **No data is sent anywhere**; the extension collects nothing.
 
-Tu peux le désactiver avec `"devicePreview.proxy": false`.
+You can turn it off with `"devicePreview.proxy": false`.
 
-## Limites connues
+## Known limitations
 
-- Les tailles correspondent au **viewport** (pixels CSS) des appareils ; le moteur de rendu reste celui de VS Code (Chromium), pas Safari iOS.
-- Le *user-agent* n'est pas modifié : les sites qui détectent le mobile côté serveur afficheront leur version ordinateur.
+- Sizes match each device's **viewport** (CSS pixels); rendering is done by VS Code's engine (Chromium), not iOS Safari.
+- The user agent is not changed: sites that detect mobile on the server side will show their desktop version.
 
-## Licence
+## Feedback
+
+Found a bug or want a device added? [Open an issue](https://github.com/CocoCrypt/Device-Frame-Preview/issues).
+
+## License
 
 MIT

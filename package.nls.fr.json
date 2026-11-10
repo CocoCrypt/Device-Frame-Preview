@@ -1,0 +1,16 @@
+{
+  "description": "Prévisualise ton site dans des cadres réalistes de téléphone, tablette, PC portable ou écran, directement dans VS Code : 71 appareils, mode multi-appareils, rechargement live et détection automatique de ton serveur de dev.",
+  "command.open": "Device Frame Preview: Ouvrir l’aperçu",
+  "command.openFile": "Device Frame Preview: Prévisualiser ce fichier HTML",
+  "command.quickOpen": "Device Frame Preview: Ouvrir (fichier actif ou serveur)",
+  "command.pickServer": "Device Frame Preview: Choisir un serveur…",
+  "config.defaultUrl": "URL utilisée si aucun serveur de dev n’est détecté (ex. ton serveur Vite, Next ou Django).",
+  "config.defaultDevice": "Appareil utilisé à la toute première ouverture (ensuite, le dernier appareil choisi est mémorisé).",
+  "config.autoReload": "Recharge l’aperçu quand un fichier change (mode fichier HTML). Les modifications CSS sont appliquées sans recharger la page.",
+  "config.multiDevices": "Appareils affichés côte à côte en mode multi-appareils (identifiants, ex. iphone-se, pixel-8, ipad-mini, laptop-fhd, ou user:<nom> pour un appareil personnalisé).",
+  "config.customDevices": "Appareils personnalisés ajoutés à la liste.",
+  "config.customDevices.width": "Largeur en px CSS",
+  "config.customDevices.height": "Hauteur en px CSS",
+  "config.showStatusBar": "Affiche un bouton « Preview » dans la barre d’état.",
+  "config.proxy": "Fait passer les URL par un proxy local qui retire X-Frame-Options et frame-ancestors, pour afficher les sites qui refusent d’être intégrés (Django, Rails…)."
+}

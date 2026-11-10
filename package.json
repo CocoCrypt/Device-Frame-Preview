@@ -1,8 +1,8 @@
 {
   "name": "ayzann-device-frame-preview",
   "displayName": "Device Frame Preview by AyZann",
-  "description": "Prévisualise ton site dans des cadres réalistes de téléphone, tablette, PC portable ou écran, directement dans VS Code : 71 appareils, mode multi-appareils, rechargement live et détection automatique de ton serveur de dev.",
-  "version": "0.3.1",
+  "description": "%description%",
+  "version": "0.4.0",
   "publisher": "ayzann",
   "license": "MIT",
   "engines": {
@@ -34,21 +34,21 @@
     "commands": [
       {
         "command": "devicePreview.open",
-        "title": "Device Frame Preview: Ouvrir l’aperçu",
+        "title": "%command.open%",
         "icon": "$(device-mobile)"
       },
       {
         "command": "devicePreview.openFile",
-        "title": "Device Frame Preview: Prévisualiser ce fichier HTML",
+        "title": "%command.openFile%",
         "icon": "$(device-mobile)"
       },
       {
         "command": "devicePreview.quickOpen",
-        "title": "Device Frame Preview: Ouvrir (fichier actif ou serveur)"
+        "title": "%command.quickOpen%"
       },
       {
         "command": "devicePreview.pickServer",
-        "title": "Device Frame Preview: Choisir un serveur…",
+        "title": "%command.pickServer%",
         "icon": "$(server)"
       }
     ],
@@ -80,17 +80,17 @@
         "devicePreview.defaultUrl": {
           "type": "string",
           "default": "http://localhost:3000",
-          "description": "URL chargée par défaut (ex : ton serveur Vite, Next, etc.)."
+          "description": "%config.defaultUrl%"
         },
         "devicePreview.defaultDevice": {
           "type": "string",
           "default": "iphone-15",
-          "description": "Appareil utilisé à la toute première ouverture (ensuite, le dernier appareil choisi est mémorisé)."
+          "description": "%config.defaultDevice%"
         },
         "devicePreview.autoReload": {
           "type": "boolean",
           "default": true,
-          "description": "Recharge l’aperçu quand un fichier change (mode fichier HTML). Les modifications CSS sont appliquées sans recharger la page."
+          "description": "%config.autoReload%"
         },
         "devicePreview.multiDevices": {
           "type": "array",
@@ -102,12 +102,12 @@
             "ipad-air",
             "laptop-13"
           ],
-          "description": "Appareils affichés côte à côte en mode multi-appareils (identifiants, ex. iphone-se, pixel-8, ipad-mini, laptop-fhd, ou user:<nom> pour un appareil personnalisé)."
+          "description": "%config.multiDevices%"
         },
         "devicePreview.customDevices": {
           "type": "array",
           "default": [],
-          "description": "Appareils personnalisés ajoutés à la liste.",
+          "description": "%config.customDevices%",
           "items": {
             "type": "object",
             "required": [
@@ -121,11 +121,11 @@
               },
               "width": {
                 "type": "number",
-                "description": "Largeur en px CSS"
+                "description": "%config.customDevices.width%"
               },
               "height": {
                 "type": "number",
-                "description": "Hauteur en px CSS"
+                "description": "%config.customDevices.height%"
               },
               "type": {
                 "type": "string",
@@ -146,12 +146,12 @@
         "devicePreview.showStatusBar": {
           "type": "boolean",
           "default": true,
-          "description": "Affiche un bouton « Preview » dans la barre d’état."
+          "description": "%config.showStatusBar%"
         },
         "devicePreview.proxy": {
           "type": "boolean",
           "default": true,
-          "description": "Fait passer les URL par un proxy local qui retire X-Frame-Options et frame-ancestors, pour afficher les sites qui refusent d’être intégrés (Django, Rails…)."
+          "description": "%config.proxy%"
         }
       }
     },
@@ -180,5 +180,6 @@
   "bugs": {
     "url": "https://github.com/CocoCrypt/Device-Frame-Preview/issues"
   },
-  "homepage": "https://github.com/CocoCrypt/Device-Frame-Preview#readme"
+  "homepage": "https://github.com/CocoCrypt/Device-Frame-Preview#readme",
+  "l10n": "./l10n"
 }

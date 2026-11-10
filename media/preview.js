@@ -9,6 +9,9 @@
   const cw = $('cw'), ch = $('ch'), customSize = $('customSize');
   const offline = $('offline');
 
+  // Traductions fournies par l'extension (vscode.l10n) ; à défaut, texte anglais d'origine
+  const T = (s, ...a) => ((init.strings && init.strings[s]) || s).replace(/\{(\d+)\}/g, (m, i) => a[i]);
+
   let conf = { customDevices: init.customDevices, multiDevices: init.multiDevices };
   let groups = [], all = [];
 
@@ -30,17 +33,17 @@
 
   function buildDeviceList() {
     groups = window.DEVICES.slice();
-    if (conf.customDevices.length) groups.push({ group: 'Mes appareils', items: conf.customDevices });
-    groups.push({ group: 'Autre', items: [{ id: 'custom', name: 'Taille personnalisée…', type: 'responsive' }] });
+    if (conf.customDevices.length) groups.push({ group: 'My devices', items: conf.customDevices });
+    groups.push({ group: 'Other', items: [{ id: 'custom', name: 'Custom size…', type: 'responsive' }] });
     all = groups.flatMap((g) => g.items);
 
     deviceSel.textContent = '';
     for (const g of groups) {
       const og = document.createElement('optgroup');
-      og.label = g.group;
+      og.label = T(g.group);
       for (const d of g.items) {
         const o = document.createElement('option');
-        o.value = d.id; o.textContent = d.name;
+        o.value = d.id; o.textContent = T(d.name);
         og.appendChild(o);
       }
       deviceSel.appendChild(og);
@@ -108,7 +111,7 @@
       v.frame.style.setProperty('--w', w + 'px');
       v.frame.style.setProperty('--h', h + 'px');
       v.frame.style.setProperty('--r', (d.radius || 0) + 'px');
-      v.label.textContent = `${d.name === 'Taille personnalisée…' ? 'Personnalisé' : d.name} · ${w}×${h}`;
+      v.label.textContent = `${d.id === 'custom' ? T('Custom') : T(d.name)} · ${w}×${h}`;
     });
     container.classList.toggle('multi', state.multi);
 
@@ -128,7 +131,7 @@
 
     const pct = Math.round(scale * 100) + ' %';
     if (state.multi) {
-      dims.textContent = `${list.length} appareils · ${pct}`;
+      dims.textContent = `${T('{0} devices', list.length)} · ${pct}`;
     } else {
       const { w, h } = sizeOf(list[0]);
       dims.textContent = `${w} × ${h} · ${pct}`;
