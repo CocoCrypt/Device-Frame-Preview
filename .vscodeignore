@@ -1,0 +1,6 @@
+.vscode/**
+test/**
+image.png
+*.vsix
+installer.cmd
+images/**

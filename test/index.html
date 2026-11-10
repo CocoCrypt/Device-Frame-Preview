@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test responsive</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f4f4f7; }
+  .badge { display: inline-block; padding: 8px 14px; border-radius: 999px; color: #fff; font-weight: 600; }
+  .badge::after { content: 'Mobile'; }
+  .badge { background: #e4572e; }
+  @media (min-width: 600px)  { .badge { background: #2e86de; } .badge::after { content: 'Tablette'; } }
+  @media (min-width: 1100px) { .badge { background: #20bf6b; } .badge::after { content: 'Desktop'; } }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); margin-top: 20px; }
+  .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+</style>
+</head>
+<body>
+  <h1>Device Preview</h1>
+  <p>Largeur détectée : <span class="badge"></span> <strong id="w"></strong></p>
+  <div class="grid">
+    <div class="card">Carte 1</div><div class="card">Carte 2</div>
+    <div class="card">Carte 3</div><div class="card">Carte 4</div>
+    <div class="card">Carte 5</div><div class="card">Carte 6</div>
+  </div>
+  <script>
+    const f = () => document.getElementById('w').textContent = innerWidth + ' px';
+    addEventListener('resize', f); f();
+  </script>
+</body>
+</html>

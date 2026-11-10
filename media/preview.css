@@ -1,0 +1,161 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  display: flex; flex-direction: column;
+}
+
+/* ---------- Barre d'outils ---------- */
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.3));
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+.toolbar select, .toolbar input, .toolbar button {
+  font: inherit; color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, rgba(128,128,128,.4));
+  border-radius: 4px; padding: 3px 8px; height: 26px;
+}
+.toolbar select:disabled { opacity: .5; }
+.toolbar button {
+  cursor: pointer; min-width: 28px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+.toolbar button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.toolbar button.active {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+.toolbar select:focus, .toolbar input:focus, .toolbar button:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+.custom-size { display: inline-flex; align-items: center; gap: 4px; }
+.custom-size[hidden] { display: none; }
+.custom-size input { width: 70px; padding: 3px 4px; }
+#urlForm { display: flex; gap: 4px; flex: 1 1 220px; min-width: 160px; }
+#urlForm input { flex: 1; min-width: 0; }
+.dims { opacity: .7; font-variant-numeric: tabular-nums; margin-left: auto; white-space: nowrap; }
+
+/* ---------- Scène ---------- */
+#stage {
+  flex: 1; overflow: auto; display: flex;
+  padding: 16px; position: relative;
+  scrollbar-width: none;
+}
+#stage::-webkit-scrollbar { display: none; }
+#scaler { margin: auto; flex: none; }
+#devices { display: flex; align-items: flex-end; gap: 48px; width: max-content; transform-origin: top left; }
+
+.device { display: flex; flex-direction: column; align-items: center; }
+.device-label { display: none; margin-bottom: 14px; font-size: 22px; opacity: .75; white-space: nowrap; }
+#devices.multi .device-label { display: block; }
+
+/* ---------- Cadre de l'appareil ---------- */
+.device-frame {
+  --bezel: 12px;
+  position: relative;
+  padding: var(--bezel);
+  background: #111;
+  border-radius: calc(var(--r) + var(--bezel));
+  box-shadow: 0 0 0 2px #3a3a3a, 0 20px 50px rgba(0,0,0,.45);
+  width: max-content;
+}
+.screen {
+  width: var(--w); height: var(--h);
+  border-radius: var(--r);
+  overflow: hidden; background: #fff; position: relative;
+}
+.screen iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+
+/* Encoche (Dynamic Island / poinçon générique) */
+.notch { display: none; }
+.has-notch .notch {
+  display: block; position: absolute; z-index: 2;
+  top: calc(var(--bezel) + 10px); left: 50%; transform: translateX(-50%);
+  width: 110px; height: 30px; border-radius: 20px; background: #000;
+  pointer-events: none;
+}
+/* Encoche classique (iPhone X à 14) */
+.notch-notch .notch { top: var(--bezel); width: 160px; height: 30px; border-radius: 0 0 18px 18px; }
+/* Poinçon (Android) */
+.notch-punch .notch { top: calc(var(--bezel) + 9px); width: 14px; height: 14px; border-radius: 50%; }
+
+/* Barre d'état des téléphones (hors du viewport : la page commence en dessous, comme en vrai) */
+.statusbar { display: none; }
+.type-phone:not(.no-frame):not(.landscape) .statusbar {
+  --sb: 22px;
+  display: flex; align-items: center; justify-content: space-between;
+  width: var(--w); height: var(--sb);
+  padding: 0 calc(var(--r) * .55 + 14px);
+  background: #fff; color: #000;
+  border-radius: var(--r) var(--r) 0 0;
+  font: 600 15px -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+}
+.type-phone.notch-island .statusbar { --sb: 54px; }
+.type-phone.notch-notch .statusbar { --sb: 47px; }
+.type-phone.notch-punch .statusbar { --sb: 32px; font-size: 13px; }
+.type-phone:not(.no-frame):not(.landscape) .screen { border-radius: 0 0 var(--r) var(--r); }
+.statusbar .sb-icons { display: inline-flex; align-items: center; gap: 5px; }
+.statusbar svg { fill: currentColor; }
+
+/* Écran de bureau (moniteur + pied) */
+.type-desktop { --bezel: 14px; --r: 0px; border-radius: 10px; margin-bottom: 90px; }
+.type-desktop .screen { border-radius: 0; }
+.type-desktop .laptop-base {
+  display: block; position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: -90px; width: 26%; min-width: 200px; height: 90px;
+  background: linear-gradient(#c8c8cd, #8f8f95);
+  clip-path: polygon(38% 0, 62% 0, 66% 82%, 100% 86%, 100% 100%, 0 100%, 0 86%, 34% 82%);
+}
+
+/* Tablette */
+.type-tablet { --bezel: 22px; }
+
+/* PC portable */
+.type-laptop {
+  --bezel: 18px; --r: 0px; border-radius: 14px 14px 0 0; padding-bottom: 26px;
+  /* la base déborde de 8 % de chaque côté : on lui réserve la place */
+  margin: 0 calc((var(--w) + 36px) * .08) 22px;
+}
+.type-laptop .screen { border-radius: 0; }
+.laptop-base { display: none; }
+.type-laptop .laptop-base {
+  display: block; position: absolute; left: -8%; right: -8%; bottom: -22px; height: 22px;
+  background: linear-gradient(#cfcfd4, #9a9aa0);
+  border-radius: 0 0 18px 18px;
+}
+.type-laptop .laptop-base::before {
+  content: ''; position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  width: 16%; height: 8px; background: #8a8a90; border-radius: 0 0 8px 8px;
+}
+
+/* Sans cadre (ou taille personnalisée) : juste l'écran */
+.no-frame { --bezel: 0px; background: transparent; box-shadow: 0 0 0 1px rgba(128,128,128,.5); border-radius: 0 !important; padding: 0 !important; margin: 0 !important; }
+.no-frame .screen { border-radius: 0; }
+.no-frame .notch, .no-frame .laptop-base { display: none !important; }
+
+/* ---------- Serveur injoignable ---------- */
+.offline {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: color-mix(in srgb, var(--vscode-editor-background) 85%, transparent);
+}
+.offline[hidden] { display: none; }
+.offline-box {
+  max-width: 420px; padding: 20px 24px; border-radius: 8px; text-align: center;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,.4));
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.offline-title { font-weight: 600; font-size: 1.1em; margin-bottom: 8px; }
+.offline code { word-break: break-all; }
+.offline-err { opacity: .6; margin-top: 4px; font-size: .9em; }
+.offline p { opacity: .85; line-height: 1.4; }
+.offline button {
+  font: inherit; cursor: pointer; padding: 4px 14px; border-radius: 4px; border: 0;
+  background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground);
+}

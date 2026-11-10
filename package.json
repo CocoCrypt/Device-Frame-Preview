@@ -1,0 +1,184 @@
+{
+  "name": "ayzann-device-frame-preview",
+  "displayName": "Device Frame Preview by AyZann",
+  "description": "Prévisualise ton site dans des cadres réalistes de téléphone, tablette, PC portable ou écran, directement dans VS Code : 71 appareils, mode multi-appareils, rechargement live et détection automatique de ton serveur de dev.",
+  "version": "0.3.1",
+  "publisher": "ayzann",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "mobile",
+    "responsive",
+    "preview",
+    "device",
+    "iphone",
+    "android",
+    "ipad",
+    "tablet",
+    "emulator",
+    "simulator",
+    "viewport",
+    "live reload"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onWebviewPanel:devicePreview"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "devicePreview.open",
+        "title": "Device Frame Preview: Ouvrir l’aperçu",
+        "icon": "$(device-mobile)"
+      },
+      {
+        "command": "devicePreview.openFile",
+        "title": "Device Frame Preview: Prévisualiser ce fichier HTML",
+        "icon": "$(device-mobile)"
+      },
+      {
+        "command": "devicePreview.quickOpen",
+        "title": "Device Frame Preview: Ouvrir (fichier actif ou serveur)"
+      },
+      {
+        "command": "devicePreview.pickServer",
+        "title": "Device Frame Preview: Choisir un serveur…",
+        "icon": "$(server)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "devicePreview.openFile",
+          "when": "resourceExtname == .html || resourceExtname == .htm",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "devicePreview.openFile",
+          "when": "resourceExtname == .html || resourceExtname == .htm",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "devicePreview.quickOpen",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Device Frame Preview",
+      "properties": {
+        "devicePreview.defaultUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "URL chargée par défaut (ex : ton serveur Vite, Next, etc.)."
+        },
+        "devicePreview.defaultDevice": {
+          "type": "string",
+          "default": "iphone-15",
+          "description": "Appareil utilisé à la toute première ouverture (ensuite, le dernier appareil choisi est mémorisé)."
+        },
+        "devicePreview.autoReload": {
+          "type": "boolean",
+          "default": true,
+          "description": "Recharge l’aperçu quand un fichier change (mode fichier HTML). Les modifications CSS sont appliquées sans recharger la page."
+        },
+        "devicePreview.multiDevices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "iphone-15",
+            "ipad-air",
+            "laptop-13"
+          ],
+          "description": "Appareils affichés côte à côte en mode multi-appareils (identifiants, ex. iphone-se, pixel-8, ipad-mini, laptop-fhd, ou user:<nom> pour un appareil personnalisé)."
+        },
+        "devicePreview.customDevices": {
+          "type": "array",
+          "default": [],
+          "description": "Appareils personnalisés ajoutés à la liste.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "width",
+              "height"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "width": {
+                "type": "number",
+                "description": "Largeur en px CSS"
+              },
+              "height": {
+                "type": "number",
+                "description": "Hauteur en px CSS"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "phone",
+                  "tablet",
+                  "laptop"
+                ],
+                "default": "phone"
+              },
+              "notch": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          }
+        },
+        "devicePreview.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Affiche un bouton « Preview » dans la barre d’état."
+        },
+        "devicePreview.proxy": {
+          "type": "boolean",
+          "default": true,
+          "description": "Fait passer les URL par un proxy local qui retire X-Frame-Options et frame-ancestors, pour afficher les sites qui refusent d’être intégrés (Django, Rails…)."
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "devicePreview.quickOpen",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
+      }
+    ]
+  },
+  "scripts": {
+    "package": "npx --yes @vscode/vsce package -o ayzann-device-frame-preview.vsix",
+    "install-ext": "npm run package && code --install-extension ayzann-device-frame-preview.vsix --force",
+    "publish": "npx --yes @vscode/vsce publish"
+  },
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1e1b4b",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CocoCrypt/Device-Frame-Preview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CocoCrypt/Device-Frame-Preview/issues"
+  },
+  "homepage": "https://github.com/CocoCrypt/Device-Frame-Preview#readme"
+}
