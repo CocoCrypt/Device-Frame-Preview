@@ -12,5 +12,10 @@
   "config.customDevices.width": "Largeur en px CSS",
   "config.customDevices.height": "Hauteur en px CSS",
   "config.showStatusBar": "Affiche un bouton « Preview » dans la barre d’état.",
-  "config.proxy": "Fait passer les URL par un proxy local qui retire X-Frame-Options et frame-ancestors, pour afficher les sites qui refusent d’être intégrés (Django, Rails…)."
+  "config.proxy": "Fait passer les URL par un proxy local qui retire X-Frame-Options et frame-ancestors, pour afficher les sites qui refusent d’être intégrés (Django, Rails…).",
+  "command.pickDevice": "Device Frame Preview: Choisir un appareil…",
+  "config.breakpoints": "Largeurs (px CSS) affichées côte à côte, sans cadre, en mode points de rupture (▥).",
+  "config.customDevices.userAgent": "User-agent présenté par cet appareil (par défaut : Android pour les téléphones et tablettes, aucun sinon).",
+  "config.emulateUserAgent": "Présente au site le user-agent de chaque appareil (iPhone, Android, iPad), en JavaScript et au serveur (via le proxy local).",
+  "config.syncScroll": "Synchronise le défilement entre les appareils en vue multi-appareils et points de rupture."
 }

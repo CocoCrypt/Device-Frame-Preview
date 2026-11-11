@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const net = require('net');
 const tls = require('tls');
+const core = require('./lib/core');
 
 let panel = null;
 
@@ -14,7 +15,9 @@ const tr = (msg, ...args) => vscode.l10n.t(msg, ...args);
 
 // Textes utilisés par media/preview.js et media/devices.js
 const WEBVIEW_STRINGS = [
-  'Custom size…', 'Custom', 'My devices', 'Other', '{0} devices',
+  'Custom size…', 'Custom', 'My devices', 'Other', '{0} devices', 'Favorites', 'Recent',
+  'Add to favorites (★)', 'Remove from favorites (★)',
+  'Color scheme: page default (D)', 'Color scheme: light (D)', 'Color scheme: dark (D)',
   'iPhone', 'Android', 'Foldables', 'iPad', 'Android tablets & more', 'Laptops', 'Desktop monitors',
   'iPhone 5 / SE (1st gen)', 'Android compact (360×800)', 'Android legacy (360×640)',
   'Galaxy Z Fold (folded)', 'Galaxy Z Fold (unfolded)', 'Pixel 9 Pro Fold (unfolded)',
@@ -26,12 +29,52 @@ const WEBVIEW_STRINGS = [
 const webviewStrings = () => Object.fromEntries(WEBVIEW_STRINGS.map((k) => [k, tr(k, '{0}')]));
 
 /* =====================================================================
+ * Accès depuis l'interface (local, Remote SSH/WSL/conteneur, Codespaces)
+ * ===================================================================== */
+
+const isRemote = () => !!vscode.env.remoteName || vscode.env.uiKind === vscode.UIKind.Web;
+const isLoopback = (host) => /^(localhost|127(?:\.\d+){3}|\[::1\]|0\.0\.0\.0)$/i.test(host);
+
+/** Origine sous laquelle l'aperçu atteint un port local de l'hôte de l'extension. */
+async function publicOrigin(port) {
+  const local = `http://127.0.0.1:${port}`;
+  if (!isRemote()) return local;
+  try {
+    // En distant, VS Code ouvre un tunnel et renvoie l'adresse joignable par l'interface
+    const ext = await vscode.env.asExternalUri(vscode.Uri.parse(`http://localhost:${port}/`));
+    return new URL(ext.toString(true)).origin;
+  } catch {
+    return local;
+  }
+}
+
+/* =====================================================================
+ * Simulation de réseau lent (appliquée au serveur de fichiers et au proxy)
+ * ===================================================================== */
+
+let limiter = null;
+function setNetwork(key) { limiter = core.createLimiter(core.NETWORK_PRESETS[key]); }
+
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Envoie un corps de réponse (Buffer, texte ou flux) au débit simulé. */
+function sendBody(res, body) {
+  const isData = Buffer.isBuffer(body) || typeof body === 'string';
+  if (!limiter) return isData ? res.end(body) : body.pipe(res);
+  const out = core.throttleStream(limiter);
+  res.on('close', () => out.destroy());
+  out.pipe(res);
+  if (isData) out.end(Buffer.from(body)); else body.pipe(out);
+}
+
+/* =====================================================================
  * Serveur statique local (mode « fichier HTML ») + rechargement à chaud
  * ===================================================================== */
 
 let server = null;
 let serverRoot = null;
 let serverPort = null;
+let serverOrigin = null; // origine vue par l'aperçu (différente en distant)
 let watcher = null;
 let pingTimer = null;
 const sseClients = new Set();
@@ -49,92 +92,49 @@ const MIME = {
   '.pdf': 'application/pdf'
 };
 
-// Script injecté dans les pages HTML servies : rechargement live (CSS à chaud,
-// position de scroll conservée) et remontée de l'URL courante vers la barre d'adresse.
-const CLIENT_JS = `(function () {
-  if (window.__dpClient) return; window.__dpClient = true;
-  var KEY = '__dp_scroll:' + location.pathname;
-  try {
-    var s = sessionStorage.getItem(KEY);
-    if (s) {
-      sessionStorage.removeItem(KEY);
-      var p = JSON.parse(s);
-      var restore = function () { scrollTo(p[0], p[1]); };
-      if (document.readyState === 'complete') restore(); else addEventListener('load', restore);
-    }
-  } catch (e) {}
-  function report() {
-    try {
-      var u = new URL(location.href); u.searchParams.delete('_dp');
-      parent.postMessage({ __dp: 'location', href: u.href, title: document.title }, '*');
-    } catch (e) {}
+// Script et styles injectés dans les pages (voir media/client.js)
+let clientAssets = null;
+function client() {
+  if (!clientAssets) {
+    const read = (f) => fs.readFileSync(path.join(__dirname, 'media', f), 'utf8');
+    clientAssets = {
+      js: `(function () {\nvar rewriteMedia = ${core.rewriteMedia};\nvar rewriteSafeArea = ${core.rewriteSafeArea};\n${read('client.js')}\n})();`,
+      css: read('client.css')
+    };
   }
-  report();
-  addEventListener('load', report);
-  addEventListener('hashchange', report);
-  addEventListener('popstate', report);
-  var es = new EventSource('/__dp/events');
-  es.onmessage = function (e) {
-    var d = JSON.parse(e.data);
-    if (d.type === 'css') {
-      var links = document.querySelectorAll('link[rel="stylesheet"]'), done = false;
-      for (var i = 0; i < links.length; i++) {
-        var u = new URL(links[i].href, location.href);
-        if (u.origin !== location.origin) continue;
-        u.searchParams.set('_dp', Date.now()); links[i].href = u.href; done = true;
-      }
-      if (done) return;
-    }
-    try { sessionStorage.setItem(KEY, JSON.stringify([scrollX, scrollY])); } catch (e) {}
-    location.reload();
-  };
-})();`;
-
-function isInside(root, p) {
-  const rel = path.relative(root, p);
-  return rel === '' || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel));
+  return clientAssets;
 }
 
-// Masque les barres de défilement (invisibles sur un vrai téléphone), le scroll reste actif.
-const CLIENT_CSS = `*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}`;
-
-function injectClient(html) {
-  const css = '<link rel="stylesheet" href="/__dp/client.css">';
-  const js = '<script src="/__dp/client.js"></script>';
-  const lower = html.toLowerCase();
-  const h = lower.indexOf('</head');
-  if (h !== -1) html = html.slice(0, h) + css + html.slice(h);
-  const i = html.toLowerCase().lastIndexOf('</body');
-  const tail = h === -1 ? css + js : js;
-  return i === -1 ? html + tail : html.slice(0, i) + tail + html.slice(i);
-}
-
-async function handleRequest(root, req, res) {
-  let urlObj;
-  try { urlObj = new URL(req.url, 'http://x'); } catch { res.writeHead(400); return res.end(); }
-
-  if (urlObj.pathname === '/__dp/client.js') {
+/** Ressources internes /__dp/… (script client, styles, événements de rechargement). */
+function handleInternal(req, res, pathname) {
+  if (pathname === '/__dp/client.js') {
     res.writeHead(200, { 'Content-Type': MIME['.js'], 'Cache-Control': 'no-store' });
-    return res.end(CLIENT_JS);
-  }
-  if (urlObj.pathname === '/__dp/client.css') {
+    res.end(client().js);
+  } else if (pathname === '/__dp/client.css') {
     res.writeHead(200, { 'Content-Type': MIME['.css'], 'Cache-Control': 'no-store' });
-    return res.end(CLIENT_CSS);
-  }
-  if (urlObj.pathname === '/__dp/events') {
+    res.end(client().css);
+  } else if (pathname === '/__dp/events') {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive'
     });
     res.write(': ok\n\n');
     sseClients.add(res);
     req.on('close', () => sseClients.delete(res));
-    return;
+  } else {
+    res.writeHead(404); res.end();
   }
+}
+
+async function handleRequest(root, req, res) {
+  let urlObj;
+  try { urlObj = new URL(req.url, 'http://x'); } catch { res.writeHead(400); return res.end(); }
+  if (urlObj.pathname.startsWith('/__dp/')) return handleInternal(req, res, urlObj.pathname);
 
   let urlPath;
   try { urlPath = decodeURIComponent(urlObj.pathname); } catch { res.writeHead(400); return res.end(); }
   let filePath = path.resolve(root, '.' + urlPath);
-  if (!isInside(root, filePath)) { res.writeHead(403); return res.end('403 – forbidden'); }
+  if (!core.isInside(root, filePath)) { res.writeHead(403); return res.end('403 – forbidden'); }
+  if (limiter) await delay(limiter.latency);
 
   try {
     let st = await fs.promises.stat(filePath);
@@ -152,13 +152,13 @@ async function handleRequest(root, req, res) {
       'Cache-Control': 'no-store'
     };
     if (ext === '.html' || ext === '.htm') {
-      const html = injectClient(await fs.promises.readFile(filePath, 'utf8'));
-      res.writeHead(200, headers);
-      return res.end(html);
+      const html = core.injectClient(await fs.promises.readFile(filePath, 'utf8'));
+      res.writeHead(200, { ...headers, 'Content-Length': Buffer.byteLength(html) });
+      return sendBody(res, html);
     }
     res.writeHead(200, { ...headers, 'Content-Length': st.size });
     if (req.method === 'HEAD') return res.end();
-    fs.createReadStream(filePath).on('error', () => res.destroy()).pipe(res);
+    sendBody(res, fs.createReadStream(filePath).on('error', () => res.destroy()));
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('404 – not found: ' + urlPath);
@@ -175,7 +175,7 @@ function stopServer() {
     if (server.closeAllConnections) server.closeAllConnections();
     server = null;
   }
-  serverRoot = serverPort = null;
+  serverRoot = serverPort = serverOrigin = null;
 }
 
 /** Démarre (ou réutilise) le serveur qui sert le dossier `root`. */
@@ -185,11 +185,16 @@ function ensureServer(root) {
 
   return new Promise((resolve, reject) => {
     const s = http.createServer((req, res) => {
-      handleRequest(root, req, res).catch((e) => { res.writeHead(500); res.end(String(e)); });
+      handleRequest(root, req, res).catch((e) => {
+        if (!res.headersSent) res.writeHead(500);
+        res.end(String(e));
+      });
     });
     s.on('error', reject);
-    s.listen(0, '127.0.0.1', () => {
-      server = s; serverRoot = root; serverPort = s.address().port;
+    s.listen(0, '127.0.0.1', async () => {
+      const port = s.address().port;
+      const origin = await publicOrigin(port);
+      server = s; serverRoot = root; serverPort = port; serverOrigin = origin;
 
       // Surveille aussi les modifications faites hors de VS Code (build, git…)
       watcher = vscode.workspace.createFileSystemWatcher(
@@ -207,7 +212,7 @@ let pendingChanges = new Set();
 let changeTimer = null;
 
 function queueChange(fsPath) {
-  if (!serverRoot || !isInside(serverRoot, fsPath)) return;
+  if (!serverRoot || !core.isInside(serverRoot, fsPath)) return;
   if (/[\\/](node_modules|\.git)([\\/]|$)/.test(fsPath)) return;
   pendingChanges.add(fsPath);
   clearTimeout(changeTimer);
@@ -226,10 +231,9 @@ function flushChanges() {
 async function serverUrlFor(fsPath) {
   const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(fsPath));
   const root = folder ? folder.uri.fsPath : path.dirname(fsPath);
-  const port = await ensureServer(root);
+  await ensureServer(root);
   const rel = path.relative(root, fsPath).split(path.sep).map(encodeURIComponent).join('/');
-  const origin = `http://127.0.0.1:${port}`;
-  return { url: `${origin}/${rel}`, server: { root, origin } };
+  return { url: `${serverOrigin}/${rel}`, server: { root, origin: serverOrigin } };
 }
 
 /* =====================================================================
@@ -241,6 +245,8 @@ function checkUrl(url) {
     let u;
     try { u = new URL(url); } catch { return resolve({ ok: false, error: 'URL invalide' }); }
     if (!/^https?:$/.test(u.protocol)) return resolve({ ok: true });
+    // Nos propres serveurs (éventuellement derrière un tunnel distant) répondent forcément
+    if (serverOrigin && u.origin === serverOrigin) return resolve({ ok: !!server });
 
     const lib = u.protocol === 'https:' ? https : http;
     // « localhost » peut viser IPv4 ou IPv6 selon le serveur : on essaie les deux.
@@ -269,74 +275,67 @@ function checkUrl(url) {
 /* =====================================================================
  * Proxy local : permet d'afficher les sites qui interdisent l'affichage
  * dans un cadre (X-Frame-Options, CSP frame-ancestors — ex. Django).
+ * Un port par « profil » d'appareil (iOS, Android…) : le serveur voit ainsi
+ * le bon user-agent même quand plusieurs appareils sont affichés.
  * ===================================================================== */
 
-let proxy = null; // { server, port, target (origine distante), origin (origine du proxy) }
+// { target, entries: Map(profil → Promise<{ server, port, origin }>), ports: Set }
+let proxy = null;
 
-function stripFrameAncestors(csp) {
-  return csp.split(';').map((s) => s.trim())
-    .filter((s) => s && !/^frame-ancestors\b/i.test(s)).join('; ');
-}
+function proxyRequest(entry, req, res) {
+  const t = new URL(proxy.target);
+  const { origin } = entry;
+  if (req.url.startsWith('/__dp/')) return handleInternal(req, res, req.url.split('?')[0]);
 
-// L'aperçu est affiché dans un contexte « tiers » : sans SameSite=None, les
-// cookies (session, CSRF…) ne seraient pas renvoyés et la connexion échouerait.
-function rewriteCookie(c) {
-  const parts = c.split(';').map((s) => s.trim())
-    .filter((p, i) => i === 0 || !/^(domain|samesite|secure)\b/i.test(p));
-  return [...parts, 'SameSite=None', 'Secure'].join('; ');
-}
-
-function proxyRequest(req, res) {
-  const { target, origin } = proxy;
-  const t = new URL(target);
-  if (req.url.startsWith('/__dp/')) {
-    return handleRequest(__dirname, req, res); // script/CSS injectés + SSE
-  }
-
-  const headers = { ...req.headers, host: t.host, 'accept-encoding': 'identity' };
+  let headers = { ...req.headers, host: t.host, 'accept-encoding': 'identity' };
   if (headers.origin === origin) headers.origin = t.origin;
   if (headers.referer && headers.referer.startsWith(origin)) {
     headers.referer = t.origin + headers.referer.slice(origin.length);
   }
+  if (getConfig().emulateUserAgent) headers = core.profileHeaders(headers, entry.profile);
 
   const lib = t.protocol === 'https:' ? https : http;
-  const preq = lib.request({
-    protocol: t.protocol, hostname: t.hostname, port: t.port, method: req.method, path: req.url,
-    headers, rejectUnauthorized: false, autoSelectFamily: true
-  }, (pres) => {
-    const h = { ...pres.headers };
-    delete h['x-frame-options'];
-    for (const k of ['content-security-policy', 'content-security-policy-report-only']) {
-      if (h[k]) h[k] = stripFrameAncestors(String(h[k]));
-    }
-    if (h.location && h.location.startsWith(t.origin)) h.location = origin + h.location.slice(t.origin.length);
-    if (h['set-cookie']) h['set-cookie'] = h['set-cookie'].map(rewriteCookie);
+  const start = () => {
+    const preq = lib.request({
+      protocol: t.protocol, hostname: t.hostname, port: t.port, method: req.method, path: req.url,
+      headers, rejectUnauthorized: false, autoSelectFamily: true
+    }, (pres) => {
+      const h = { ...pres.headers };
+      delete h['x-frame-options'];
+      for (const k of ['content-security-policy', 'content-security-policy-report-only']) {
+        if (h[k]) h[k] = core.stripFrameAncestors(String(h[k]));
+      }
+      if (h.location && h.location.startsWith(t.origin)) h.location = origin + h.location.slice(t.origin.length);
+      if (h['set-cookie']) h['set-cookie'] = h['set-cookie'].map(core.rewriteCookie);
 
-    if (!/text\/html/i.test(h['content-type'] || '') || req.method === 'HEAD') {
-      res.writeHead(pres.statusCode, h);
-      return pres.pipe(res);
-    }
-    const chunks = [];
-    pres.on('data', (c) => chunks.push(c));
-    pres.on('end', () => {
-      // Les liens absolus vers le site restent dans le proxy
-      const html = injectClient(Buffer.concat(chunks).toString('utf8').split(t.origin).join(origin));
-      delete h['transfer-encoding'];
-      h['content-length'] = Buffer.byteLength(html);
-      res.writeHead(pres.statusCode, h);
-      res.end(html);
+      if (!/text\/html/i.test(h['content-type'] || '') || req.method === 'HEAD') {
+        res.writeHead(pres.statusCode, h);
+        return sendBody(res, pres);
+      }
+      const chunks = [];
+      pres.on('data', (c) => chunks.push(c));
+      pres.on('end', () => {
+        // Les liens absolus vers le site restent dans le proxy
+        const html = core.injectClient(Buffer.concat(chunks).toString('utf8').split(t.origin).join(origin));
+        delete h['transfer-encoding'];
+        h['content-length'] = Buffer.byteLength(html);
+        res.writeHead(pres.statusCode, h);
+        sendBody(res, html);
+      });
     });
-  });
-  preq.on('error', (e) => {
-    if (res.headersSent) return res.destroy();
-    res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end(tr('Device Frame Preview: cannot reach {0} ({1})', target, e.code || e.message));
-  });
-  req.pipe(preq);
+    preq.on('error', (e) => {
+      if (res.headersSent) return res.destroy();
+      res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(tr('Device Frame Preview: cannot reach {0} ({1})', proxy ? proxy.target : '', e.code || e.message));
+    });
+    req.pipe(preq);
+  };
+  if (limiter) setTimeout(start, limiter.latency); else start();
 }
 
 // WebSockets (rechargement à chaud de Vite, Django Channels…)
 function proxyUpgrade(req, socket, head) {
+  if (!proxy) return socket.destroy();
   const t = new URL(proxy.target);
   const secure = t.protocol === 'https:';
   const port = Number(t.port) || (secure ? 443 : 80);
@@ -359,37 +358,66 @@ function proxyUpgrade(req, socket, head) {
 
 function stopProxy() {
   if (!proxy) return;
-  proxy.server.close();
-  if (proxy.server.closeAllConnections) proxy.server.closeAllConnections();
+  for (const p of proxy.entries.values()) {
+    p.then((e) => {
+      e.server.close();
+      if (e.server.closeAllConnections) e.server.closeAllConnections();
+    }, () => {});
+  }
   proxy = null;
 }
 
-function ensureProxy(target) {
-  if (proxy && proxy.target === target) return Promise.resolve(proxy);
-  stopProxy();
-  return new Promise((resolve, reject) => {
+function ensureProxy(target, profile) {
+  if (!proxy || proxy.target !== target) {
+    stopProxy();
+    proxy = { target, entries: new Map(), ports: new Set() };
+  }
+  const current = proxy;
+  if (current.entries.has(profile)) return current.entries.get(profile);
+
+  const p = new Promise((resolve, reject) => {
+    const entry = { profile, server: null, port: 0, origin: '' };
     const s = http.createServer((req, res) => {
-      try { proxyRequest(req, res); } catch (e) { res.writeHead(500); res.end(String(e)); }
+      try { proxyRequest(entry, req, res); } catch (e) { res.writeHead(500); res.end(String(e)); }
     });
     s.on('upgrade', proxyUpgrade);
     s.on('error', reject);
-    s.listen(0, '127.0.0.1', () => {
-      const port = s.address().port;
-      proxy = { server: s, port, target, origin: `http://127.0.0.1:${port}` };
-      resolve(proxy);
+    s.listen(0, '127.0.0.1', async () => {
+      entry.server = s; entry.port = s.address().port;
+      current.ports.add(entry.port);
+      entry.origin = await publicOrigin(entry.port);
+      resolve(entry);
     });
   });
+  current.entries.set(profile, p);
+  p.catch(() => current.entries.delete(profile));
+  return p;
 }
 
-/** Indique au webview quelle adresse charger réellement pour une URL donnée. */
-async function resolveFrame(url) {
+/**
+ * Indique au webview quelle adresse charger réellement pour une URL donnée :
+ * { from: origine affichée, to: { profil: origine à charger } } ou null.
+ */
+async function resolveFrame(url, profiles) {
   let u;
   try { u = new URL(url); } catch { return null; }
   if (!/^https?:$/.test(u.protocol)) return null;
-  if (serverPort && u.origin === `http://127.0.0.1:${serverPort}`) return null; // déjà notre serveur
-  if (!getConfig().proxy) return null;
-  const p = await ensureProxy(u.origin);
-  return { from: u.origin, to: p.origin };
+  if (serverOrigin && u.origin === serverOrigin) return null; // déjà notre serveur
+  if (serverPort && u.origin === `http://127.0.0.1:${serverPort}`) return null;
+  const cfg = getConfig();
+
+  if (!cfg.proxy) {
+    // Sans proxy, un serveur local distant reste joignable via un tunnel VS Code
+    if (!isRemote() || !isLoopback(u.hostname)) return null;
+    const ext = await vscode.env.asExternalUri(vscode.Uri.parse(u.origin + '/'));
+    return { from: u.origin, to: { '*': new URL(ext.toString(true)).origin } };
+  }
+
+  const keys = new Set(['none']);
+  if (cfg.emulateUserAgent) for (const p of profiles || []) if (core.PROFILES[p]) keys.add(p);
+  const to = {};
+  for (const k of keys) to[k] = (await ensureProxy(u.origin, k)).origin;
+  return { from: u.origin, to };
 }
 
 /* =====================================================================
@@ -427,7 +455,7 @@ function fetchTitle(url) {
 
 /** Renvoie les serveurs HTTP locaux qui répondent sur les ports courants. */
 async function detectServers() {
-  const own = new Set([serverPort, proxy && proxy.port]);
+  const own = new Set([serverPort, ...(proxy ? proxy.ports : [])]);
   const found = await Promise.all(COMMON_PORTS.filter((p) => !own.has(p)).map(async (port) => {
     // 127.0.0.1 d'abord (Django, PHP…), sinon IPv6 (Vite, Node récents)
     let url = null;
@@ -474,18 +502,25 @@ async function smartOpen(context, opts) {
 }
 
 /* =====================================================================
- * Configuration
+ * Configuration et préférences
  * ===================================================================== */
+
+const UA_CHOICES = ['ios', 'ipados', 'android', 'android-tablet', 'none'];
 
 function getConfig() {
   const c = vscode.workspace.getConfiguration('devicePreview');
   const custom = c.get('customDevices', []);
+  const bps = c.get('breakpoints', [320, 768, 1024, 1440]);
   return {
     defaultUrl: c.get('defaultUrl', 'http://localhost:3000'),
     defaultDevice: c.get('defaultDevice', 'iphone-15'),
     autoReload: c.get('autoReload', true),
     proxy: c.get('proxy', true),
     showStatusBar: c.get('showStatusBar', true),
+    emulateUserAgent: c.get('emulateUserAgent', true),
+    syncScroll: c.get('syncScroll', true),
+    breakpoints: (Array.isArray(bps) ? bps : []).map(Number)
+      .filter((n) => n >= 100 && n <= 4000).map(Math.round),
     multiDevices: c.get('multiDevices', ['iphone-15', 'ipad-air', 'laptop-13']),
     customDevices: (Array.isArray(custom) ? custom : [])
       .filter((d) => d && d.name && d.width > 0 && d.height > 0)
@@ -493,7 +528,8 @@ function getConfig() {
         const type = ['phone', 'tablet', 'laptop'].includes(d.type) ? d.type : 'phone';
         return {
           id: 'user:' + d.name, name: d.name, w: Math.round(d.width), h: Math.round(d.height),
-          type, radius: type === 'phone' ? 40 : type === 'tablet' ? 24 : 0, notch: !!d.notch
+          type, radius: type === 'phone' ? 40 : type === 'tablet' ? 24 : 0, notch: !!d.notch,
+          ua: UA_CHOICES.includes(d.userAgent) ? d.userAgent : undefined
         };
       })
   };
@@ -501,7 +537,82 @@ function getConfig() {
 
 function webviewConfig() {
   const cfg = getConfig();
-  return { customDevices: cfg.customDevices, multiDevices: cfg.multiDevices };
+  return {
+    customDevices: cfg.customDevices, multiDevices: cfg.multiDevices, breakpoints: cfg.breakpoints,
+    emulateUserAgent: cfg.emulateUserAgent, syncScroll: cfg.syncScroll
+  };
+}
+
+function prefs(context) {
+  return {
+    favorites: context.globalState.get('favoriteDevices', []),
+    recents: context.globalState.get('recentDevices', [])
+  };
+}
+
+async function toggleFavorite(context, id) {
+  const fav = prefs(context).favorites;
+  await context.globalState.update('favoriteDevices',
+    fav.includes(id) ? fav.filter((x) => x !== id) : [...fav, id]);
+}
+
+/** Recherche d'appareil (Quick Pick) avec favoris, récents et filtre par nom ou taille. */
+function pickDevice(context, webview, msg) {
+  const devices = Array.isArray(msg.items) ? msg.items : [];
+  const byId = new Map(devices.map((d) => [d.id, d]));
+  const qp = vscode.window.createQuickPick();
+  qp.title = tr('Choose a device');
+  qp.placeholder = tr('Type a name or a width, e.g. “pixel” or “390”');
+  qp.matchOnDescription = true;
+
+  const build = () => {
+    const { favorites, recents } = prefs(context);
+    const fav = new Set(favorites);
+    const out = [];
+    const item = (d) => ({
+      label: (d.id === msg.current ? '$(check) ' : '') + d.label,
+      description: d.w ? `${d.w}×${d.h}` : '',
+      id: d.id,
+      buttons: d.id === 'custom' ? [] : [{
+        iconPath: new vscode.ThemeIcon(fav.has(d.id) ? 'star-full' : 'star-empty'),
+        tooltip: fav.has(d.id) ? tr('Remove from favorites') : tr('Add to favorites')
+      }]
+    });
+    const section = (label, list) => {
+      if (!list.length) return;
+      out.push({ label, kind: vscode.QuickPickItemKind.Separator });
+      list.forEach((d) => out.push(item(d)));
+    };
+    section(tr('Favorites'), favorites.map((id) => byId.get(id)).filter(Boolean));
+    section(tr('Recent'), recents.filter((id) => !fav.has(id)).map((id) => byId.get(id)).filter(Boolean));
+    let group = null, list = [];
+    for (const d of devices) {
+      if (d.group !== group) { section(group, list); group = d.group; list = []; }
+      list.push(d);
+    }
+    section(group, list);
+    return out;
+  };
+
+  const focus = (id) => {
+    const it = qp.items.find((i) => i.id === id);
+    if (it) qp.activeItems = [it];
+  };
+  qp.items = build();
+  focus(msg.current);
+  qp.onDidTriggerItemButton(async ({ item }) => {
+    await toggleFavorite(context, item.id);
+    qp.items = build();
+    focus(item.id);
+    webview.postMessage({ type: 'prefs', ...prefs(context) });
+  });
+  qp.onDidAccept(() => {
+    const sel = qp.selectedItems[0] || qp.activeItems[0];
+    if (sel && sel.id) webview.postMessage({ type: 'setDevice', id: sel.id });
+    qp.hide();
+  });
+  qp.onDidHide(() => qp.dispose());
+  qp.show();
 }
 
 /* =====================================================================
@@ -552,6 +663,8 @@ function setupPanel(context, p, target) {
     server: target.server || null,
     device: context.globalState.get('lastDevice') || cfg.defaultDevice,
     ...webviewConfig(),
+    prefs: prefs(context),
+    profiles: core.PROFILES,
     strings: webviewStrings()
   };
 
@@ -566,15 +679,32 @@ function setupPanel(context, p, target) {
 </head>
 <body>
   <header class="toolbar">
-    <select id="device" title="${tr('Device')}"></select>
+    <span class="tool-group">
+      <select id="device" title="${tr('Device')}"></select>
+      <button id="fav">☆</button>
+      <button id="search" title="${tr('Search devices (/)')}">⌕</button>
+    </span>
     <span id="customSize" class="custom-size" hidden>
       <input id="cw" type="number" min="100" max="4000" title="${tr('Width (px)')}">
       <span>×</span>
       <input id="ch" type="number" min="100" max="4000" title="${tr('Height (px)')}">
     </span>
-    <button id="rotate" title="${tr('Rotate (R)')}">⟳</button>
-    <button id="frameToggle" title="${tr('Show / hide the frame (F)')}">▢</button>
-    <button id="multi" title="${tr('Show several devices side by side (M)')}">⊞</button>
+    <span class="tool-group">
+      <button id="rotate" title="${tr('Rotate (R)')}">⟳</button>
+      <button id="frameToggle" title="${tr('Show / hide the frame (F)')}">▢</button>
+      <button id="multi" title="${tr('Show several devices side by side (M)')}">⊞</button>
+      <button id="grid" title="${tr('Breakpoints: frameless widths side by side (B)')}">▥</button>
+    </span>
+    <span class="tool-group">
+      <button id="touch" title="${tr('Touch emulation: the mouse acts as a finger (T)')}">☝</button>
+      <button id="scheme">◐</button>
+      <select id="network" title="${tr('Network throttling')}">
+        <option value="">${tr('No throttling')}</option>
+        <option value="4g">${tr('Fast 4G')}</option>
+        <option value="slow-4g">${tr('Slow 4G')}</option>
+        <option value="3g">3G</option>
+      </select>
+    </span>
     <select id="zoom" title="Zoom">
       <option value="fit">${tr('Fit')}</option>
       <option value="0.25">25 %</option>
@@ -609,17 +739,33 @@ function setupPanel(context, p, target) {
 </body>
 </html>`;
 
+  const sendPrefs = () => webview.postMessage({ type: 'prefs', ...prefs(context) });
+
   const subs = [
     webview.onDidReceiveMessage(async (msg) => {
       switch (msg.type) {
-        case 'deviceChanged':
-          context.globalState.update('lastDevice', msg.device);
+        case 'deviceChanged': {
+          await context.globalState.update('lastDevice', msg.device);
+          const rec = prefs(context).recents.filter((id) => id !== msg.device);
+          await context.globalState.update('recentDevices', [msg.device, ...rec].slice(0, 6));
+          sendPrefs();
+          break;
+        }
+        case 'toggleFavorite':
+          await toggleFavorite(context, msg.id);
+          sendPrefs();
+          break;
+        case 'pickDevice':
+          pickDevice(context, webview, msg);
+          break;
+        case 'network':
+          setNetwork(msg.value);
           break;
         case 'resolve': {
           let map = null;
-          try { map = await resolveFrame(msg.url); } catch { /* chargement direct */ }
+          try { map = await resolveFrame(msg.url, msg.profiles); } catch { /* chargement direct */ }
           // Mémorise la dernière URL de serveur pour ce projet (pas celles du mode fichier)
-          if (!(serverPort && msg.url.startsWith(`http://127.0.0.1:${serverPort}`))) {
+          if (!(serverOrigin && msg.url.startsWith(serverOrigin))) {
             context.workspaceState.update('lastUrl', msg.url);
           }
           webview.postMessage({ type: 'resolved', seq: msg.seq, map });
@@ -631,7 +777,11 @@ function setupPanel(context, p, target) {
           break;
         }
         case 'openExternal':
-          if (/^https?:\/\//i.test(msg.url)) vscode.env.openExternal(vscode.Uri.parse(msg.url));
+          if (/^https?:\/\//i.test(msg.url)) {
+            let uri = vscode.Uri.parse(msg.url);
+            if (isRemote()) uri = await vscode.env.asExternalUri(uri);
+            vscode.env.openExternal(uri);
+          }
           break;
         case 'title':
           p.title = msg.title ? `Preview · ${msg.title}` : 'Device Frame Preview';
@@ -648,6 +798,7 @@ function setupPanel(context, p, target) {
   p.onDidDispose(() => {
     subs.forEach((s) => s.dispose());
     if (panel === p) panel = null;
+    setNetwork(null);
     stopServer();
     stopProxy();
   });
@@ -692,6 +843,10 @@ function activate(context) {
       const uri = vscode.window.activeTextEditor?.document.uri;
       return isHtml(uri) ? openFile(context, uri) : smartOpen(context);
     }),
+    vscode.commands.registerCommand('devicePreview.pickDevice', async () => {
+      if (!panel) await vscode.commands.executeCommand('devicePreview.quickOpen');
+      if (panel) panel.webview.postMessage({ type: 'requestPick' });
+    }),
 
     // Restaure l'aperçu au redémarrage de VS Code
     vscode.window.registerWebviewPanelSerializer('devicePreview', {
@@ -701,9 +856,11 @@ function activate(context) {
         const srv = saved.server;
         if (srv && srv.root && fs.existsSync(srv.root) && saved.url && saved.url.startsWith(srv.origin)) {
           try {
-            const port = await ensureServer(srv.root);
-            const origin = `http://127.0.0.1:${port}`;
-            target = { url: origin + saved.url.slice(srv.origin.length), server: { root: srv.root, origin } };
+            await ensureServer(srv.root);
+            target = {
+              url: serverOrigin + saved.url.slice(srv.origin.length),
+              server: { root: srv.root, origin: serverOrigin }
+            };
           } catch { target = {}; }
         } else if (srv) {
           target = {};
@@ -727,4 +884,8 @@ function deactivate() {
   stopProxy();
 }
 
-module.exports = { activate, deactivate };
+module.exports = {
+  activate, deactivate,
+  // Pour les tests d'intégration (serveurs sans interface)
+  _internals: { resolveFrame, ensureServer, serverUrlFor, setNetwork, stopProxy, stopServer }
+};

@@ -2,7 +2,7 @@
   "name": "ayzann-device-frame-preview",
   "displayName": "Device Frame Preview by AyZann",
   "description": "%description%",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "ayzann",
   "license": "MIT",
   "engines": {
@@ -24,7 +24,13 @@
     "emulator",
     "simulator",
     "viewport",
-    "live reload"
+    "live reload",
+    "touch",
+    "dark mode",
+    "user agent",
+    "breakpoints",
+    "network throttling",
+    "safe area"
   ],
   "main": "./extension.js",
   "activationEvents": [
@@ -50,6 +56,11 @@
         "command": "devicePreview.pickServer",
         "title": "%command.pickServer%",
         "icon": "$(server)"
+      },
+      {
+        "command": "devicePreview.pickDevice",
+        "title": "%command.pickDevice%",
+        "icon": "$(search)"
       }
     ],
     "menus": {
@@ -104,6 +115,21 @@
           ],
           "description": "%config.multiDevices%"
         },
+        "devicePreview.breakpoints": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 100,
+            "maximum": 4000
+          },
+          "default": [
+            320,
+            768,
+            1024,
+            1440
+          ],
+          "description": "%config.breakpoints%"
+        },
         "devicePreview.customDevices": {
           "type": "array",
           "default": [],
@@ -139,6 +165,17 @@
               "notch": {
                 "type": "boolean",
                 "default": false
+              },
+              "userAgent": {
+                "type": "string",
+                "enum": [
+                  "ios",
+                  "ipados",
+                  "android",
+                  "android-tablet",
+                  "none"
+                ],
+                "description": "%config.customDevices.userAgent%"
               }
             }
           }
@@ -152,6 +189,16 @@
           "type": "boolean",
           "default": true,
           "description": "%config.proxy%"
+        },
+        "devicePreview.emulateUserAgent": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.emulateUserAgent%"
+        },
+        "devicePreview.syncScroll": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.syncScroll%"
         }
       }
     },
@@ -164,9 +211,11 @@
     ]
   },
   "scripts": {
+    "test": "node --test",
     "package": "npx --yes @vscode/vsce package -o ayzann-device-frame-preview.vsix",
     "install-ext": "npm run package && code --install-extension ayzann-device-frame-preview.vsix --force",
-    "publish": "npx --yes @vscode/vsce publish"
+    "publish": "npx --yes @vscode/vsce publish",
+    "publish:ovsx": "npx --yes ovsx publish ayzann-device-frame-preview.vsix"
   },
   "icon": "icon.png",
   "galleryBanner": {

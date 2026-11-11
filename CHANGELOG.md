@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+- Each device presents its own user-agent (iPhone, Android, iPad) to the page and to the server. / Chaque appareil présente son propre user-agent (iPhone, Android, iPad) à la page et au serveur.
+- Touch emulation: touch events, drag-to-scroll with inertia, `(pointer: coarse)` and `(hover: none)`. / Émulation tactile : événements tactiles, défilement au glisser avec inertie, `(pointer: coarse)` et `(hover: none)`.
+- Light / dark mode toggle (`prefers-color-scheme`), applied without reloading. / Bascule clair / sombre (`prefers-color-scheme`), appliquée sans rechargement.
+- Safe areas: `viewport-fit=cover` and `env(safe-area-inset-*)` on iPhones with a notch or Dynamic Island. / Zones sûres : `viewport-fit=cover` et `env(safe-area-inset-*)` sur les iPhone à encoche ou Dynamic Island.
+- Slow network simulation (Fast 4G, Slow 4G, 3G). / Simulation de réseau lent (4G rapide, 4G lente, 3G).
+- Synchronized scrolling in multi-device view. / Défilement synchronisé en vue multi-appareils.
+- Breakpoints view: frameless widths side by side. / Mode points de rupture : largeurs sans cadre côte à côte.
+- Device search (name or width), favorites and recent devices. / Recherche d'appareil (nom ou largeur), favoris et appareils récents.
+- Custom size: rulers and drag-to-resize handles. / Taille personnalisée : règles et poignées de redimensionnement.
+- Remote SSH, WSL, Dev Containers and Codespaces support. / Prise en charge de Remote SSH, WSL, Dev Containers et Codespaces.
+- Unit tests, CI, and Open VSX publishing. / Tests unitaires, intégration continue et publication sur Open VSX.
+
 ## 0.4.0
 - English is now the default language; French is used automatically when VS Code is in French. / L’extension est maintenant en anglais par défaut, et en français si VS Code est en français.
 - New animated demo and screenshots in the README. / Nouvelle démo animée et nouvelles captures dans le README.

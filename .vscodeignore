@@ -4,3 +4,4 @@ image.png
 *.vsix
 installer.cmd
 images/**
+.github/**

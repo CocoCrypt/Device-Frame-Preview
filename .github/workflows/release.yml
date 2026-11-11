@@ -1,0 +1,36 @@
+name: Release
+
+# Publie une version quand un tag v* est poussé (ex. git tag v0.5.0 && git push --tags).
+# Secrets à créer dans GitHub (Settings → Secrets → Actions) :
+#   VSCE_PAT : jeton Azure DevOps du Visual Studio Marketplace
+#   OVSX_PAT : jeton Open VSX (https://open-vsx.org, namespace « ayzann »)
+# Une étape dont le secret est absent est simplement ignorée.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: npx --yes @vscode/vsce package -o ayzann-device-frame-preview.vsix
+      - name: Visual Studio Marketplace
+        if: env.VSCE_PAT != ''
+        run: npx --yes @vscode/vsce publish --packagePath ayzann-device-frame-preview.vsix
+      - name: Open VSX (VSCodium, Cursor, Windsurf…)
+        if: env.OVSX_PAT != ''
+        run: npx --yes ovsx publish ayzann-device-frame-preview.vsix
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ayzann-device-frame-preview.vsix

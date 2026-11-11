@@ -12,5 +12,10 @@
   "config.customDevices.width": "Width in CSS px",
   "config.customDevices.height": "Height in CSS px",
   "config.showStatusBar": "Show a “Preview” button in the status bar.",
-  "config.proxy": "Route pages through a local proxy that removes X-Frame-Options and frame-ancestors, so sites that refuse to be embedded (Django, Rails…) can be previewed."
+  "config.proxy": "Route pages through a local proxy that removes X-Frame-Options and frame-ancestors, so sites that refuse to be embedded (Django, Rails…) can be previewed.",
+  "command.pickDevice": "Device Frame Preview: Choose a device…",
+  "config.breakpoints": "Widths (CSS px) shown side by side, without frames, in breakpoints mode (▥).",
+  "config.customDevices.userAgent": "User-agent presented by this device (default: Android for phones and tablets, none otherwise).",
+  "config.emulateUserAgent": "Present each device's user-agent (iPhone, Android, iPad) to the site, in JavaScript and to the server (through the local proxy).",
+  "config.syncScroll": "Synchronize scrolling between devices in multi-device and breakpoints views."
 }

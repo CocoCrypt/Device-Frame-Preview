@@ -21,7 +21,8 @@ body {
   border: 1px solid var(--vscode-input-border, rgba(128,128,128,.4));
   border-radius: 4px; padding: 3px 8px; height: 26px;
 }
-.toolbar select:disabled { opacity: .5; }
+.toolbar select:disabled, .toolbar button:disabled { opacity: .5; cursor: default; }
+.tool-group { display: inline-flex; align-items: center; gap: 4px; }
 .toolbar button {
   cursor: pointer; min-width: 28px;
   background: var(--vscode-button-secondaryBackground);
@@ -67,7 +68,7 @@ body {
 .screen {
   width: var(--w); height: var(--h);
   border-radius: var(--r);
-  overflow: hidden; background: #fff; position: relative;
+  overflow: hidden; background: #000; position: relative;
 }
 .screen iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
 
@@ -85,9 +86,12 @@ body {
 .notch-punch .notch { top: calc(var(--bezel) + 9px); width: 14px; height: 14px; border-radius: 50%; }
 
 /* Barre d'état des téléphones (hors du viewport : la page commence en dessous, comme en vrai) */
+.type-phone { --sb: 22px; }
+.type-phone.notch-island { --sb: 54px; }
+.type-phone.notch-notch { --sb: 47px; }
+.type-phone.notch-punch { --sb: 32px; }
 .statusbar { display: none; }
 .type-phone:not(.no-frame):not(.landscape) .statusbar {
-  --sb: 22px;
   display: flex; align-items: center; justify-content: space-between;
   width: var(--w); height: var(--sb);
   padding: 0 calc(var(--r) * .55 + 14px);
@@ -95,12 +99,24 @@ body {
   border-radius: var(--r) var(--r) 0 0;
   font: 600 15px -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
 }
-.type-phone.notch-island .statusbar { --sb: 54px; }
-.type-phone.notch-notch .statusbar { --sb: 47px; }
-.type-phone.notch-punch .statusbar { --sb: 32px; font-size: 13px; }
+.type-phone.notch-punch .statusbar { font-size: 13px; }
 .type-phone:not(.no-frame):not(.landscape) .screen { border-radius: 0 0 var(--r) var(--r); }
 .statusbar .sb-icons { display: inline-flex; align-items: center; gap: 5px; }
 .statusbar svg { fill: currentColor; }
+.type-phone.dark:not(.no-frame):not(.landscape) .statusbar { background: #000; color: #fff; }
+
+/* viewport-fit=cover : la page passe sous la barre d'état, les zones sûres (env()) sont émulées */
+.type-phone.cover:not(.no-frame):not(.landscape) .statusbar {
+  position: absolute; z-index: 1; top: var(--bezel); left: var(--bezel);
+  background: transparent; color: #fff; mix-blend-mode: difference; pointer-events: none;
+}
+.type-phone.cover:not(.no-frame):not(.landscape) .screen { height: calc(var(--h) + var(--sb)); border-radius: var(--r); }
+.home-indicator { display: none; }
+.type-phone.cover .home-indicator {
+  display: block; position: absolute; z-index: 2; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--bezel) + 8px); width: 134px; height: 5px; border-radius: 3px;
+  background: #fff; mix-blend-mode: difference; pointer-events: none;
+}
 
 /* Écran de bureau (moniteur + pied) */
 .type-desktop { --bezel: 14px; --r: 0px; border-radius: 10px; margin-bottom: 90px; }
@@ -137,6 +153,44 @@ body {
 .no-frame { --bezel: 0px; background: transparent; box-shadow: 0 0 0 1px rgba(128,128,128,.5); border-radius: 0 !important; padding: 0 !important; margin: 0 !important; }
 .no-frame .screen { border-radius: 0; }
 .no-frame .notch, .no-frame .laptop-base { display: none !important; }
+
+/* ---------- Taille personnalisée : règles et poignées ---------- */
+.ruler, .handle, .size-tip { display: none; }
+.device.has-ruler { padding: 26px 0 0 26px; }
+.resizable .ruler {
+  display: block; position: absolute; pointer-events: none;
+  color: var(--vscode-descriptionForeground, #888); font: 11px/1 var(--vscode-font-family, sans-serif);
+}
+.resizable .ruler-x {
+  left: 0; top: -22px; width: var(--w); height: 18px; border-bottom: 1px solid currentColor;
+  background:
+    repeating-linear-gradient(to right, currentColor 0 1px, transparent 1px 10px) left bottom / 100% 4px no-repeat,
+    repeating-linear-gradient(to right, currentColor 0 1px, transparent 1px 50px) left bottom / 100% 9px no-repeat;
+}
+.resizable .ruler-y {
+  top: 0; left: -22px; height: var(--h); width: 18px; border-right: 1px solid currentColor;
+  background:
+    repeating-linear-gradient(to bottom, currentColor 0 1px, transparent 1px 10px) right top / 4px 100% no-repeat,
+    repeating-linear-gradient(to bottom, currentColor 0 1px, transparent 1px 50px) right top / 9px 100% no-repeat;
+}
+.ruler span { position: absolute; }
+.ruler-x span { left: calc(var(--at) + 2px); top: 0; }
+.ruler-y span { top: calc(var(--at) + 2px); left: 0; writing-mode: vertical-lr; }
+.resizable .handle {
+  display: block; position: absolute; z-index: 3; touch-action: none;
+  background: var(--vscode-focusBorder, #0078d4); opacity: .35; border-radius: 4px;
+  --hs: calc(10px / var(--scale, 1)); --ho: calc(-14px / var(--scale, 1));
+}
+.resizable .handle:hover, .resizing .resizable .handle { opacity: .9; }
+.handle-r { top: 0; right: var(--ho); width: var(--hs); height: var(--h); cursor: ew-resize; }
+.handle-b { left: 0; bottom: var(--ho); height: var(--hs); width: var(--w); cursor: ns-resize; }
+.handle-rb { right: var(--ho); bottom: var(--ho); width: var(--hs); height: var(--hs); cursor: nwse-resize; }
+.resizing iframe { pointer-events: none; }
+.resizing .resizable .size-tip {
+  display: block; position: absolute; z-index: 4; right: 8px; bottom: 8px;
+  padding: 4px 8px; border-radius: 4px; background: rgba(0,0,0,.75); color: #fff;
+  font: 600 calc(13px / var(--scale, 1)) var(--vscode-font-family, sans-serif);
+}
 
 /* ---------- Serveur injoignable ---------- */
 .offline {
