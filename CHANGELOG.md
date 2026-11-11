@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.5.0
+## 0.5.2
+- Custom devices: new `radius` option, and `notch` accepts `island`, `notch` or `punch`. / Appareils personnalisés : nouvelle option `radius`, et `notch` accepte `island`, `notch` ou `punch`.
+- `devicePreview.defaultDevice` now suggests the device list. / `devicePreview.defaultDevice` propose désormais la liste des appareils.
+- Fix: the page no longer spills past the rounded screen corners of the frame. / Correctif : la page ne déborde plus des coins arrondis de l'écran.
+- Fix: seeking in videos and audio served from an HTML file (HTTP range requests). / Correctif : on peut avancer dans les vidéos et sons servis en mode fichier HTML (requêtes partielles).
+- Fix: proxied pages that are not in UTF-8 keep their accents. / Correctif : les pages qui ne sont pas en UTF-8 gardent leurs accents via le proxy.
+- Fix: links to `localhost`, `127.0.0.1`, `[::1]` and `//host` stay inside the proxy. / Correctif : les liens vers `localhost`, `127.0.0.1`, `[::1]` et `//hôte` restent dans le proxy.
+- Fix: a previewed page can no longer control the preview through messages. / Correctif : une page affichée ne peut plus piloter l'aperçu par messages.
+
+## 0.5.1
 - Each device presents its own user-agent (iPhone, Android, iPad) to the page and to the server. / Chaque appareil présente son propre user-agent (iPhone, Android, iPad) à la page et au serveur.
 - Touch emulation: touch events, drag-to-scroll with inertia, `(pointer: coarse)` and `(hover: none)`. / Émulation tactile : événements tactiles, défilement au glisser avec inertie, `(pointer: coarse)` et `(hover: none)`.
 - Light / dark mode toggle (`prefers-color-scheme`), applied without reloading. / Bascule clair / sombre (`prefers-color-scheme`), appliquée sans rechargement.

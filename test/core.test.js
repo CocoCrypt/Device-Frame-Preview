@@ -107,3 +107,48 @@ test('createLimiter sans préréglage : pas de limitation', () => {
   assert.equal(core.createLimiter(undefined), null);
   assert.ok(core.NETWORK_PRESETS['3g'].latency > core.NETWORK_PRESETS['4g'].latency);
 });
+
+test('parseRange gère les plages simples, suffixes et hors fichier', () => {
+  assert.equal(core.parseRange(undefined, 100), null);
+  assert.equal(core.parseRange('items=0-1', 100), null);
+  assert.deepEqual(core.parseRange('bytes=0-', 100), { start: 0, end: 99 });
+  assert.deepEqual(core.parseRange('bytes=10-19', 100), { start: 10, end: 19 });
+  assert.deepEqual(core.parseRange('bytes=90-500', 100), { start: 90, end: 99 });
+  assert.deepEqual(core.parseRange('bytes=-30', 100), { start: 70, end: 99 });
+  assert.deepEqual(core.parseRange('bytes=-500', 100), { start: 0, end: 99 });
+  assert.equal(core.parseRange('bytes=100-', 100), false);
+  assert.equal(core.parseRange('bytes=20-10', 100), false);
+  assert.equal(core.parseRange('bytes=0-', 0), false);
+});
+
+test('decodeHtml respecte le charset de l’en-tête puis celui de la page', () => {
+  const latin1 = Buffer.from('<meta charset="iso-8859-1"><p>été</p>', 'latin1');
+  assert.equal(core.charsetOf(null, latin1), 'iso-8859-1');
+  assert.match(core.decodeHtml(latin1), /été/);
+  assert.match(core.decodeHtml(Buffer.from('<p>été</p>', 'latin1'), 'text/html; charset="windows-1252"'), /été/);
+  assert.match(core.decodeHtml(Buffer.from('<p>été</p>')), /été/);
+  assert.match(core.decodeHtml(Buffer.from('<p>été</p>'), 'text/html; charset=nimportequoi'), /été/);
+});
+
+test('rewriteOrigins couvre localhost / 127.0.0.1 / ::1 et les URL sans protocole', () => {
+  const P = 'http://127.0.0.1:51000';
+  const out = core.rewriteOrigins(
+    '<a href="http://localhost:3000/a"> <img src="http://127.0.0.1:3000/b.png">' +
+    ' <script src="//localhost:3000/c.js"></script> url(//[::1]:3000/d)' +
+    ' http://localhost:30001/x http://localhost:3000.example.com https://localhost:3000/y',
+    'http://localhost:3000', P);
+  assert.equal(out,
+    `<a href="${P}/a"> <img src="${P}/b.png">` +
+    ' <script src="//127.0.0.1:51000/c.js"></script> url(//127.0.0.1:51000/d)' +
+    ' http://localhost:30001/x http://localhost:3000.example.com https://localhost:3000/y');
+  assert.equal(core.rewriteOrigins('https://example.com/p', 'https://example.com', P), P + '/p');
+  assert.equal(core.rewriteOrigins('/relative', 'https://example.com', P), '/relative');
+});
+
+test('defaultDevice liste exactement les appareils de devices.js', () => {
+  const window = {};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../media/devices.js'), 'utf8'), { window });
+  const ids = [...window.DEVICES].flatMap((g) => [...g.items].map((d) => d.id));
+  const pkg = require('../package.json');
+  assert.deepEqual(pkg.contributes.configuration.properties['devicePreview.defaultDevice'].enum, ids);
+});

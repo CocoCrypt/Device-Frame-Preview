@@ -54,7 +54,7 @@ Raccourcis dans l'aperçu : `R` pivoter · `F` cadre · `M` multi-appareils · `
 | `devicePreview.defaultDevice` | `iphone-15` | Appareil à la première ouverture |
 | `devicePreview.multiDevices` | `["iphone-15", "ipad-air", "laptop-13"]` | Appareils du mode multi |
 | `devicePreview.breakpoints` | `[320, 768, 1024, 1440]` | Largeurs du mode points de rupture |
-| `devicePreview.customDevices` | `[]` | Appareils perso, ex. `[{ "name": "Mon tel", "width": 390, "height": 844, "userAgent": "ios" }]` |
+| `devicePreview.customDevices` | `[]` | Appareils perso, ex. `[{ "name": "Mon tel", "width": 390, "height": 844, "radius": 48, "notch": "punch", "userAgent": "android" }]` (`notch` : `island`, `notch` ou `punch`) |
 | `devicePreview.emulateUserAgent` | `true` | Présente au site le user-agent de chaque appareil |
 | `devicePreview.syncScroll` | `true` | Défilement synchronisé entre les appareils |
 | `devicePreview.autoReload` | `true` | Rechargement live en mode fichier HTML |

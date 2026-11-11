@@ -11,6 +11,8 @@
   "config.customDevices": "Custom devices added to the list.",
   "config.customDevices.width": "Width in CSS px",
   "config.customDevices.height": "Height in CSS px",
+  "config.customDevices.notch": "Camera cutout: \"island\" (Dynamic Island, also used for true), \"notch\" (classic notch) or \"punch\" (punch-hole camera).",
+  "config.customDevices.radius": "Screen corner radius in CSS px (default: 40 for phones, 24 for tablets).",
   "config.showStatusBar": "Show a “Preview” button in the status bar.",
   "config.proxy": "Route pages through a local proxy that removes X-Frame-Options and frame-ancestors, so sites that refuse to be embedded (Django, Rails…) can be previewed.",
   "command.pickDevice": "Device Frame Preview: Choose a device…",

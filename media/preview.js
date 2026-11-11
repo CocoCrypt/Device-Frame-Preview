@@ -484,10 +484,22 @@
     if (actions[k]) { e.preventDefault(); actions[k](); }
   });
 
+  // Vrai si le message vient d'une page affichée (ou d'un de ses cadres), pas de l'extension
+  function fromPreview(source) {
+    for (let w = source, i = 0; w && i < 20; i++) {
+      if (views.some((v) => v.iframe.contentWindow === w)) return true;
+      if (w === window || w.parent === w) return false;
+      w = w.parent;
+    }
+    return false;
+  }
+
   window.addEventListener('resize', layout);
   window.addEventListener('message', (e) => {
     const m = e.data;
     if (!m || typeof m !== 'object') return;
+    // Une page affichée ne doit pas pouvoir piloter l'aperçu (naviguer, changer de réglages…)
+    if (!m.__dp && fromPreview(e.source)) return;
 
     // Messages envoyés par le script injecté dans les pages
     if (m.__dp) {

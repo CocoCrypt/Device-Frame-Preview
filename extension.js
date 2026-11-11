@@ -152,13 +152,22 @@ async function handleRequest(root, req, res) {
       'Cache-Control': 'no-store'
     };
     if (ext === '.html' || ext === '.htm') {
-      const html = core.injectClient(await fs.promises.readFile(filePath, 'utf8'));
-      res.writeHead(200, { ...headers, 'Content-Length': Buffer.byteLength(html) });
-      return sendBody(res, html);
+      const html = Buffer.from(core.injectClient(core.decodeHtml(await fs.promises.readFile(filePath))));
+      res.writeHead(200, { ...headers, 'Content-Length': html.length });
+      return req.method === 'HEAD' ? res.end() : sendBody(res, html);
     }
-    res.writeHead(200, { ...headers, 'Content-Length': st.size });
-    if (req.method === 'HEAD') return res.end();
-    sendBody(res, fs.createReadStream(filePath).on('error', () => res.destroy()));
+    // Requêtes partielles : nécessaires pour avancer dans une vidéo ou un son
+    headers['Accept-Ranges'] = 'bytes';
+    const range = core.parseRange(req.headers.range, st.size);
+    if (range === false) {
+      res.writeHead(416, { ...headers, 'Content-Range': `bytes */${st.size}` });
+      return res.end();
+    }
+    const { start, end } = range || { start: 0, end: st.size - 1 };
+    if (range) headers['Content-Range'] = `bytes ${start}-${end}/${st.size}`;
+    res.writeHead(range ? 206 : 200, { ...headers, 'Content-Length': st.size ? end - start + 1 : 0 });
+    if (req.method === 'HEAD' || !st.size) return res.end();
+    sendBody(res, fs.createReadStream(filePath, { start, end }).on('error', () => res.destroy()));
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('404 – not found: ' + urlPath);
@@ -305,7 +314,7 @@ function proxyRequest(entry, req, res) {
       for (const k of ['content-security-policy', 'content-security-policy-report-only']) {
         if (h[k]) h[k] = core.stripFrameAncestors(String(h[k]));
       }
-      if (h.location && h.location.startsWith(t.origin)) h.location = origin + h.location.slice(t.origin.length);
+      if (h.location) h.location = core.rewriteOrigins(h.location, t.origin, origin);
       if (h['set-cookie']) h['set-cookie'] = h['set-cookie'].map(core.rewriteCookie);
 
       if (!/text\/html/i.test(h['content-type'] || '') || req.method === 'HEAD') {
@@ -315,10 +324,13 @@ function proxyRequest(entry, req, res) {
       const chunks = [];
       pres.on('data', (c) => chunks.push(c));
       pres.on('end', () => {
-        // Les liens absolus vers le site restent dans le proxy
-        const html = core.injectClient(Buffer.concat(chunks).toString('utf8').split(t.origin).join(origin));
+        // Décodée selon son encodage, la page est renvoyée en utf-8 ; ses liens
+        // absolus vers le site (y compris localhost ⇄ 127.0.0.1) restent dans le proxy
+        const text = core.decodeHtml(Buffer.concat(chunks), h['content-type']);
+        const html = Buffer.from(core.injectClient(core.rewriteOrigins(text, t.origin, origin)));
         delete h['transfer-encoding'];
-        h['content-length'] = Buffer.byteLength(html);
+        h['content-type'] = String(h['content-type']).replace(/;\s*charset\s*=[^;]*/i, '') + '; charset=utf-8';
+        h['content-length'] = html.length;
         res.writeHead(pres.statusCode, h);
         sendBody(res, html);
       });
@@ -506,6 +518,7 @@ async function smartOpen(context, opts) {
  * ===================================================================== */
 
 const UA_CHOICES = ['ios', 'ipados', 'android', 'android-tablet', 'none'];
+const NOTCH_CHOICES = ['island', 'notch', 'punch'];
 
 function getConfig() {
   const c = vscode.workspace.getConfiguration('devicePreview');
@@ -526,9 +539,14 @@ function getConfig() {
       .filter((d) => d && d.name && d.width > 0 && d.height > 0)
       .map((d) => {
         const type = ['phone', 'tablet', 'laptop'].includes(d.type) ? d.type : 'phone';
+        const radius = Number.isFinite(d.radius) && type !== 'laptop'
+          ? Math.min(Math.max(Math.round(d.radius), 0), 200)
+          : type === 'phone' ? 40 : type === 'tablet' ? 24 : 0;
+        // notch: true reste accepté (= Dynamic Island) pour les anciens réglages
+        const notch = d.notch === true ? 'island' : NOTCH_CHOICES.includes(d.notch) ? d.notch : undefined;
         return {
           id: 'user:' + d.name, name: d.name, w: Math.round(d.width), h: Math.round(d.height),
-          type, radius: type === 'phone' ? 40 : type === 'tablet' ? 24 : 0, notch: !!d.notch,
+          type, radius, notch,
           ua: UA_CHOICES.includes(d.userAgent) ? d.userAgent : undefined
         };
       })

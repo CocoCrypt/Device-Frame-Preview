@@ -54,7 +54,7 @@ Shortcuts inside the preview: `R` rotate · `F` frame · `M` multi-device · `B`
 | `devicePreview.defaultDevice` | `iphone-15` | Device used the first time |
 | `devicePreview.multiDevices` | `["iphone-15", "ipad-air", "laptop-13"]` | Devices shown in multi-device view |
 | `devicePreview.breakpoints` | `[320, 768, 1024, 1440]` | Widths shown in breakpoints view |
-| `devicePreview.customDevices` | `[]` | Your own devices, e.g. `[{ "name": "My phone", "width": 390, "height": 844, "userAgent": "ios" }]` |
+| `devicePreview.customDevices` | `[]` | Your own devices, e.g. `[{ "name": "My phone", "width": 390, "height": 844, "radius": 48, "notch": "punch", "userAgent": "android" }]` (`notch`: `island`, `notch` or `punch`) |
 | `devicePreview.emulateUserAgent` | `true` | Present each device's user-agent to the site |
 | `devicePreview.syncScroll` | `true` | Synchronized scrolling between devices |
 | `devicePreview.autoReload` | `true` | Live reload in HTML file mode |

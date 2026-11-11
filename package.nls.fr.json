@@ -11,6 +11,8 @@
   "config.customDevices": "Appareils personnalisés ajoutés à la liste.",
   "config.customDevices.width": "Largeur en px CSS",
   "config.customDevices.height": "Hauteur en px CSS",
+  "config.customDevices.notch": "Découpe de la caméra : « island » (Dynamic Island, aussi pour true), « notch » (encoche classique) ou « punch » (poinçon).",
+  "config.customDevices.radius": "Rayon des coins de l'écran en px CSS (par défaut : 40 pour un téléphone, 24 pour une tablette).",
   "config.showStatusBar": "Affiche un bouton « Preview » dans la barre d’état.",
   "config.proxy": "Fait passer les URL par un proxy local qui retire X-Frame-Options et frame-ancestors, pour afficher les sites qui refusent d’être intégrés (Django, Rails…).",
   "command.pickDevice": "Device Frame Preview: Choisir un appareil…",

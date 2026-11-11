@@ -66,8 +66,12 @@ body {
   width: max-content;
 }
 .screen {
+  --sr: var(--r);
   width: var(--w); height: var(--h);
-  border-radius: var(--r);
+  border-radius: var(--sr);
+  /* clip-path en plus de overflow : l'iframe (autre origine, sous transform: scale) échappe
+     parfois au découpage arrondi de Chromium/Electron et ses coins débordent du cadre */
+  clip-path: inset(0 round var(--sr));
   overflow: hidden; background: #000; position: relative;
 }
 .screen iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
@@ -100,7 +104,7 @@ body {
   font: 600 15px -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
 }
 .type-phone.notch-punch .statusbar { font-size: 13px; }
-.type-phone:not(.no-frame):not(.landscape) .screen { border-radius: 0 0 var(--r) var(--r); }
+.type-phone:not(.no-frame):not(.landscape) .screen { --sr: 0 0 var(--r) var(--r); }
 .statusbar .sb-icons { display: inline-flex; align-items: center; gap: 5px; }
 .statusbar svg { fill: currentColor; }
 .type-phone.dark:not(.no-frame):not(.landscape) .statusbar { background: #000; color: #fff; }
@@ -110,7 +114,7 @@ body {
   position: absolute; z-index: 1; top: var(--bezel); left: var(--bezel);
   background: transparent; color: #fff; mix-blend-mode: difference; pointer-events: none;
 }
-.type-phone.cover:not(.no-frame):not(.landscape) .screen { height: calc(var(--h) + var(--sb)); border-radius: var(--r); }
+.type-phone.cover:not(.no-frame):not(.landscape) .screen { height: calc(var(--h) + var(--sb)); --sr: var(--r); }
 .home-indicator { display: none; }
 .type-phone.cover .home-indicator {
   display: block; position: absolute; z-index: 2; left: 50%; transform: translateX(-50%);
@@ -120,7 +124,7 @@ body {
 
 /* Écran de bureau (moniteur + pied) */
 .type-desktop { --bezel: 14px; --r: 0px; border-radius: 10px; margin-bottom: 90px; }
-.type-desktop .screen { border-radius: 0; }
+.type-desktop .screen { --sr: 0px; }
 .type-desktop .laptop-base {
   display: block; position: absolute; left: 50%; transform: translateX(-50%);
   bottom: -90px; width: 26%; min-width: 200px; height: 90px;
@@ -137,7 +141,7 @@ body {
   /* la base déborde de 8 % de chaque côté : on lui réserve la place */
   margin: 0 calc((var(--w) + 36px) * .08) 22px;
 }
-.type-laptop .screen { border-radius: 0; }
+.type-laptop .screen { --sr: 0px; }
 .laptop-base { display: none; }
 .type-laptop .laptop-base {
   display: block; position: absolute; left: -8%; right: -8%; bottom: -22px; height: 22px;
@@ -151,7 +155,7 @@ body {
 
 /* Sans cadre (ou taille personnalisée) : juste l'écran */
 .no-frame { --bezel: 0px; background: transparent; box-shadow: 0 0 0 1px rgba(128,128,128,.5); border-radius: 0 !important; padding: 0 !important; margin: 0 !important; }
-.no-frame .screen { border-radius: 0; }
+.no-frame .screen { --sr: 0px; }
 .no-frame .notch, .no-frame .laptop-base { display: none !important; }
 
 /* ---------- Taille personnalisée : règles et poignées ---------- */
